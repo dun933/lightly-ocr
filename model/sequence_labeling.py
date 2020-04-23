@@ -1,17 +1,20 @@
+"""
+Sequence Labeling layer. The output from CNN then feeds toward biLSTM/biGRU for sequence labeling. Output feeds to Joint CTC-Attention
+# Reference
+    - [Long Short-Term Memory](https://www.bioinf.jku.at/publications/older/2604.pdf)"""
+
 import tensorflow as tf
 from tensorflow.keras import Model
 from tensorflow.keras.layers import Lambda, Reshape, BatchNormalization, Dense, Input, LSTM, GRU, Add, Concatenate
 
 # biLSTM/biGRU
 
-# helper functions
-
 
 def call_func(func, *args, **kwargs):
     return func(*args, **kwargs)
 
 
-def bisequence(inputs, hidden_size, output_size, num_classes=1000, cell='lstm', training=True):
+def bisequence(inputs, hidden_size, output_size, num_classes=1000, cell='LSTM', debug=False, **kwargs):
     '''implements bi-directional LSTM
         args:
             inputs<tf.Tensor>: connecting layers shape [batch, timesteps, features]
@@ -43,14 +46,13 @@ def bisequence(inputs, hidden_size, output_size, num_classes=1000, cell='lstm', 
     merged_2 = Concatenate()(stack_fn(merged_1, cell))
     merged_2 = BatchNormalization()(merged_2)
     outputs = Dense(num_classes, activation='softmax', kernel_initializer='he_normal', name='finals')(merged_2)
-    return Model(inputs, outputs, name=f'bi{cell}')
-
-
-def test(debug=True):
-    inputs = Input(shape=(10, 10, 2048), name='inputs')
-    bil = bisequence(inputs, 256, 64, cell='gru')
+    model = Model(inputs, outputs, name=f'bi{cell}')
     if debug:
-        bil.summary()
+        model.compile(optimizer='adam', loss='mse')
+        model.summary()
+    return model
+
+# just for testing
+# bisequence(Input(shape=(10,10,2048), name='inputs'), 256,64,debug=True)
 
 
-#test()
