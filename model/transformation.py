@@ -5,10 +5,39 @@ Transform network layer --> uses to transform image as inputs for CNN. ported fr
     [Spatial Transformer Networks](https://arxiv.org/pdf/1506.02025.pdf)
     [Robust Scene Text Recognition with Automatic Rectification](https://arxiv.org/pdf/1603.03915.pdf)
 """
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras import Sequential
-from tensorflow.keras.layers import Layer, Conv2D, MaxPool2D, BatchNormalization, GlobalAveragePooling2D, Activation, Dense, Reshape
+from tensorflow.keras import Model, Sequential
+from tensorflow.keras.layers import Layer, Conv2D, MaxPool2D, BatchNormalization, GlobalAveragePooling2D, Activation, Dense
+
+class TPS_STN(Model):
+    '''rectification Network of RARE, or TPS based STN'''
+
+    def __init__(self, F, I_size, I_r_size, I_channels=1):
+        '''
+        args:
+            - F<int32>: fiducial points for grid generator
+            - I_size<tuple, (h,w)>: (height, width) of the input image I
+            - I_r_size<tuple, (h,w)>: (height, width) of the rectified image I_r
+            - I_channels<int32>: channels of input layers
+        returns:
+            - batch_I_r<tf.Tensor>: rectified image [batch x I_r_height x I_r_width x I_channels]
+        '''
+        super(TPS_STN, self).__init__()
+        self.F = F
+        self.I_size = I_size
+        self.I_channels = I_channels
+        self.LocalizationNetwork = LocalizationNet(self.F, self.I_channels)
+        self.GridGenerator = GridGenerator(self.F, self.I_r_size)
+
+    def call(self, batch_I):
+        batch_C_prime = self.LocalizationNetwork(batch_I)  # batch x K x 2
+        build_P_prime = self.GridGenerator.build_P_prime(batch_C_prime) # batch x n (=I_r_width x I_r_height) x 2
+        build_P_prime_reshape = tf.reshape(build_P_prime, (build_P_prime.shape[0], self.I_r_size[0], self.I_r_size[1], 2))
+        batch_I_r = bilinear_sampler(batch_I, build_P_prime_reshape)
+        return batch_I_r
 
 class LocalizationNet(Layer):
     """Localization Network of RARE, which predicts C' (Kx2) from I (I_width x I_height)"""
@@ -16,10 +45,11 @@ class LocalizationNet(Layer):
     def __init__(self, F, I_channels):
         '''
         args:
-            - F<int32>: fiducial points for gridgenerator
+            - batch_I<tf.Tensor>: input_image [batch_size x I_height x I_width X I_channels]
+            - F<int32>: fiducial points for grid generator
             - I_channels<int32>: channels of input layers
         returns:
-            - instance of Localization Net
+            - batch_C_prime<tf.Tensor>: predicted coordinates of fiducial points for input batch [batch_size x F x 2]
         '''
         super(LocalizationNet, self).__init__()
         self.F = F
@@ -35,39 +65,7 @@ class LocalizationNet(Layer):
              GlobalAveragePooling2D() # [batch_size x 512]
              ], name='localnet')
         self.localization_fc1 = Sequential([Dense(256), Activation('relu')], name='local_fc_1')
-        self.localization_fc2 = LinearFC2(self.F * 2,self.F, input_dim=256)
-
-    def call(self, batch_I):
-        """
-        args:
-            - batch_I<tf.Tensor>: input_image [batch_size x I_height x I_width X I_channels]
-        returns:
-            - batch_C_prime<tf.Tensor>: predicted coordinates of fiducial points for input batch [batch_size x F x 2]
-        """
-        batch_size = batch_I.shape[0]
-        feats = Reshape(target_shape=(batch_size, -1))(self.cnn(batch_I))
-        batch_C_prime = Reshape(target_shape=(batch_size, self.F, 2))(self.localization_fc2(self.localization_fc1(feats)))
-        return batch_C_prime
-
-class LinearFC2(Layer):
-    '''
-    A tweak in dense layer to use custom initial_bias, init weight matrix with zeros for fc2 layer in RARE
-    '''
-    def __init__(self,units, F, input_dim=32):
-        '''
-        args:
-            - units<int32>: dimensionality of output space
-            - F<int32>: fiducial points
-            - input_dim<int32, default=32>: just your input dimension
-        output:
-             - your densely tensor with shape [batch_size, units]
-        '''
-        super(LinearFC2, self).__init__()
-        self.w = tf.Variable(initial_value=tf.zeros_initializer()(shape=(input_dim, units), dtype=tf.float32),trainable=True)
-        self.b = self._fc2_bias(F)
-
-    def call(self, inputs):
-        return tf.matmul(inputs, self.w)+self.b
+        self.localization_fc2 = Dense(self.F * 2, use_bias=True, kernel_initializer='zeros', bias_initializer=self._fc2_bias(self.F), name='local_fc_2')
 
     def _fc2_bias(self, F):
         # init fc2 a bit different
@@ -77,12 +75,15 @@ class LinearFC2(Layer):
         ctrl_pts_y_bottom = np.linspace(1.0, 0.0, num=int(F / 2))
         ctrl_pts_top = np.stack([ctrl_pts_x, ctrl_pts_y_top], axis=1)
         ctrl_pts_bottom = np.stack([ctrl_pts_x, ctrl_pts_y_bottom], axis=1)
-        initial_bias = np.concatenate([ctrl_pts_top, ctrl_pts_bottom], axis=0)
-        return tf.convert_to_tensor(initial_bias, dtype=tf.float32)
+        initial_bias = tf.concat([ctrl_pts_top, ctrl_pts_bottom], axis=0)
+        return tf.reshape(initial_bias, -1)
 
-x = tf.ones((2,2))
-l = LinearFC2(64,20,256)
-print(l(x))
+    def call(self, batch_I):
+        batch_size = batch_I.shape[0]
+        feats = tf.reshape(self.cnn(batch_I), (batch_size, -1))
+        batch_C_prime = tf.reshape(self.localization_fc2(self.localization_fc1(feats)), (batch_size, self.F, 2))
+        return batch_C_prime
+
 
 class GridGenerator(Layer):
     """Grid Generator of RARE, producing P_prime by T*P"""
@@ -155,7 +156,7 @@ class GridGenerator(Layer):
         return P_hat  # n x F+3
 
     def build_P_prime(self, batch_C_prime):
-        '''Generate GRid from batch_C_prime [batch_size x F x 2]'''
+        '''Generate Grid from batch_C_prime [batch_size x F x 2]'''
         batch_size = batch_C_prime.shape[0]
         batch_inv_delta_C = tf.repeat(self.inv_delta_C, repeats=[batch_size, 1, 1])
         batch_P_hat = tf.repeat(self.P_hat, repeats=[batch_size, 1, 1])
@@ -163,3 +164,85 @@ class GridGenerator(Layer):
         batch_T = tf.matmul(batch_inv_delta_C, batch_C_primes_with_zeros)
         batch_P_prime = tf.matmul(batch_P_hat, batch_T)
         return batch_P_prime
+
+def bilinear_sampler(img, grid):
+    """
+    args:
+        - img<tf.Tensor>: batch of images in (B, H, W, C) layout.
+        - grid<tf.Tensor>: output of grid generator
+    returns:
+        - out: interpolated images according to grids. Same size as grid.
+    """
+    def get_pixel_value(img, x, y):
+        """
+        args:
+                - img: tensor of shape (B, H, W, C)
+                - x: flattened tensor of shape (B*H*W,)
+                - y: flattened tensor of shape (B*H*W,)
+        returns:
+                - output: tensor of shape (B, H, W, C)
+        """
+        shape = tf.shape(x)
+        batch_size = shape[0]
+        height = shape[1]
+        width = shape[2]
+
+        batch_idx = tf.range(0, batch_size)
+        batch_idx = tf.reshape(batch_idx, (batch_size, 1, 1))
+        b = tf.tile(batch_idx, (1, height, width))
+
+        indices = tf.stack([b, y, x], 3)
+
+        return tf.gather_nd(img, indices)
+    H = tf.shape(img)[1]
+    W = tf.shape(img)[2]
+    max_y = tf.cast(H - 1, 'int32')
+    max_x = tf.cast(W - 1, 'int32')
+    zero = tf.zeros([], dtype='int32')
+    x, y = grid[..., 0], grid[..., 1]
+    # rescale x and y to [0, W-1/H-1]
+    x = tf.cast(x, 'float32')
+    y = tf.cast(y, 'float32')
+    x = 0.5 * ((x + 1.0) * tf.cast(max_x - 1, 'float32'))
+    y = 0.5 * ((y + 1.0) * tf.cast(max_y - 1, 'float32'))
+
+    # grab 4 nearest corner points for each (x_i, y_i)
+    x0 = tf.cast(tf.floor(x), 'int32')
+    x1 = x0 + 1
+    y0 = tf.cast(tf.floor(y), 'int32')
+    y1 = y0 + 1
+
+    # clip to range [0, H-1/W-1] to not violate img boundaries
+    x0 = tf.clip_by_value(x0, zero, max_x)
+    x1 = tf.clip_by_value(x1, zero, max_x)
+    y0 = tf.clip_by_value(y0, zero, max_y)
+    y1 = tf.clip_by_value(y1, zero, max_y)
+
+    # get pixel value at corner coords
+    Ia = get_pixel_value(img, x0, y0)
+    Ib = get_pixel_value(img, x0, y1)
+    Ic = get_pixel_value(img, x1, y0)
+    Id = get_pixel_value(img, x1, y1)
+
+    # recast as float for delta calculation
+    x0 = tf.cast(x0, 'float32')
+    x1 = tf.cast(x1, 'float32')
+    y0 = tf.cast(y0, 'float32')
+    y1 = tf.cast(y1, 'float32')
+
+    # calculate deltas
+    wa = (x1 - x) * (y1 - y)
+    wb = (x1 - x) * (y - y0)
+    wc = (x - x0) * (y1 - y)
+    wd = (x - x0) * (y - y0)
+
+    # add dimension for addition
+    wa = tf.expand_dims(wa, axis=3)
+    wb = tf.expand_dims(wb, axis=3)
+    wc = tf.expand_dims(wc, axis=3)
+    wd = tf.expand_dims(wd, axis=3)
+
+    # compute output
+    out = tf.add_n([wa * Ia, wb * Ib, wc * Ic, wd * Id])
+
+    return out

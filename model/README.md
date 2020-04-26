@@ -17,9 +17,9 @@ Three words: hackathon, OCR, EAST =)
   - [ResNet50v2](../paper/1603.05027.pdf)
     - ![proposed resnet](images/resnetv2-proposed.png)
     -  Using pre-activation weight to address faster convergence when scaling the number of layers for each model
-  
+
 ## Todoist
-* __URGENT__: Improve runtime for linking different file
+* ~~__URGENT__: Improve runtime for linking different file~~
 * [x] nmt dataset (_finished on feb 14_)
 * [x] construction of SHA-RNN (_finished on feb 14_)
 * [x] construction of YOLO (_finished on march 24_)
