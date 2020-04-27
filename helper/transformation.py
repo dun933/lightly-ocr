@@ -10,9 +10,9 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras import Model, Sequential
-from tensorflow.keras.layers import Layer, Conv2D, MaxPool2D, BatchNormalization, GlobalAveragePooling2D, Activation, Dense
+from tensorflow.keras.layers import *
 
-class TPS_STN(Model):
+class tps_stn(Model):
     '''rectification Network of RARE, or TPS based STN'''
 
     def __init__(self, F, I_size, I_r_size, I_channels=1):
@@ -25,18 +25,18 @@ class TPS_STN(Model):
         returns:
             - batch_I_r<tf.Tensor>: rectified image [batch x I_r_height x I_r_width x I_channels]
         '''
-        super(TPS_STN, self).__init__()
+        super(tps_stn, self).__init__()
         self.F = F
         self.I_size = I_size
         self.I_channels = I_channels
         self.LocalizationNetwork = LocalizationNet(self.F, self.I_channels)
         self.GridGenerator = GridGenerator(self.F, self.I_r_size)
 
-    def call(self, batch_I):
-        batch_C_prime = self.LocalizationNetwork(batch_I)  # batch x K x 2
+    def call(self, inputs):
+        batch_C_prime = self.LocalizationNetwork(inputs)  # batch x K x 2
         build_P_prime = self.GridGenerator.build_P_prime(batch_C_prime) # batch x n (=I_r_width x I_r_height) x 2
-        build_P_prime_reshape = tf.reshape(build_P_prime, (build_P_prime.shape[0], self.I_r_size[0], self.I_r_size[1], 2))
-        batch_I_r = bilinear_sampler(batch_I, build_P_prime_reshape)
+        build_P_prime_reshape = tf.reshape(build_P_prime, [build_P_prime.shape[0], self.I_r_size[0], self.I_r_size[1], 2])
+        batch_I_r = bilinear_sampler(inputs, build_P_prime_reshape)
         return batch_I_r
 
 class LocalizationNet(Layer):
@@ -76,7 +76,7 @@ class LocalizationNet(Layer):
         ctrl_pts_top = np.stack([ctrl_pts_x, ctrl_pts_y_top], axis=1)
         ctrl_pts_bottom = np.stack([ctrl_pts_x, ctrl_pts_y_bottom], axis=1)
         initial_bias = tf.concat([ctrl_pts_top, ctrl_pts_bottom], axis=0)
-        return tf.reshape(initial_bias, -1)
+        return tf.reshape(initial_bias, [2,int(F/2), 2])
 
     def call(self, batch_I):
         batch_size = batch_I.shape[0]
@@ -188,7 +188,7 @@ def bilinear_sampler(img, grid):
         width = shape[2]
 
         batch_idx = tf.range(0, batch_size)
-        batch_idx = tf.reshape(batch_idx, (batch_size, 1, 1))
+        batch_idx = tf.reshape(batch_idx, [batch_size, 1, 1])
         b = tf.tile(batch_idx, (1, height, width))
 
         indices = tf.stack([b, y, x], 3)

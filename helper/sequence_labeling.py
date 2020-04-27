@@ -5,8 +5,7 @@ Sequence Labeling layer. The output from CNN then feeds toward biLSTM/biGRU for 
 
 import tensorflow as tf
 from tensorflow.keras import Model
-from tensorflow.keras.layers import Lambda, Reshape, BatchNormalization, Dense, Input, LSTM, GRU, Add, Concatenate
-
+from tensorflow.keras.layers import *
 # biLSTM/biGRU
 
 
@@ -54,5 +53,3 @@ def bisequence(inputs, hidden_size, output_size, num_classes=1000, cell='LSTM', 
 
 # just for testing
 # bisequence(Input(shape=(10,10,2048), name='inputs'), 256,64,debug=True)
-
-

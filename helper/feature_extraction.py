@@ -11,7 +11,7 @@ Feature Extractor utilizing CNN. Takes inputs from a STN then returns a feature 
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras import Model
-from tensorflow.keras.layers import Conv2D, DepthwiseConv2D, LeakyReLU, BatchNormalization, Add, MaxPool2D, ZeroPadding2D, Activation, Input
+from tensorflow.keras.layers import *
 from tensorflow.keras.applications.resnet_v2 import ResNet50V2
 from functools import wraps
 
