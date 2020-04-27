@@ -14,8 +14,8 @@ Three words: hackathon, OCR, EAST =)
     | ------------------ | ---------------- | -------------------- | ----------------------- |
     | ResNet50/Darknet53 | STN/FC layers    | biLSTM/AttentionLSTM | CTC/Joint CTC-Attention |
 - Feature Extraction (_refers to [feature_extraction.py](feature_extraction.py)_)
-  - [ResNet50v2](../paper/1603.05027.pdf)
-    ![proposed resnet](images/resnetv2-proposed.png)
+  - [ResNet50v2](https://arxiv.org/pdf/1603.05027.pdf)
+    ![proposed resnet](helper/images/resnetv2-proposed.png)
     -  Using pre-activation weight to address faster convergence when scaling the number of layers for each model
 
 ## Todoist
@@ -27,6 +27,6 @@ Three words: hackathon, OCR, EAST =)
 * [ ] Added CTC Loss
 
 ## Notes
-
+- refers to [readme](helper/README)
 ## Credits
 * [clovaai's deep-text-recognition-benchmark](https://github.com/clovaai/deep-text-recognition-benchmark)
