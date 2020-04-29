@@ -1,7 +1,8 @@
 """
 Sequence Labeling layer. The output from CNN then feeds toward biLSTM/biGRU for sequence labeling. Output feeds to Joint CTC-Attention
 # Reference
-    - [Long Short-Term Memory](https://www.bioinf.jku.at/publications/older/2604.pdf)"""
+    - [Long Short-Term Memory](https://www.bioinf.jku.at/publications/older/2604.pdf)
+"""
 
 import tensorflow as tf
 from tensorflow.keras import Model
@@ -13,7 +14,7 @@ def call_func(func, *args, **kwargs):
     return func(*args, **kwargs)
 
 
-def bisequence(inputs, hidden_size, output_size, num_classes=1000, cell='LSTM', debug=False, **kwargs):
+def biLSTM(inputs, hidden_size, output_size, num_classes=1000, cell='LSTM', debug=False, **kwargs):
     '''implements bi-directional LSTM
         args:
             inputs<tf.Tensor>: connecting layers shape [batch, timesteps, features]
@@ -50,6 +51,3 @@ def bisequence(inputs, hidden_size, output_size, num_classes=1000, cell='LSTM', 
         model.compile(optimizer='adam', loss='mse')
         model.summary()
     return model
-
-# just for testing
-# bisequence(Input(shape=(10,10,2048), name='inputs'), 256,64,debug=True)

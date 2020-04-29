@@ -1,2 +1,12 @@
-tps_stn
-    - fiducial points:
+OCR => detector => recognition
+- shared same backbone for both stages
+    - backbone: efficientNet vs resNet
+    - detector: CRAFT/YOLO
+    - transform : STN
+    - sequence labeling : biLSTM/biGRU
+    - encoding layer: Attention/CTC
+
+
+- backbone:efficientNet vs resNet
+    - implements residual network
+    - shortcut connection

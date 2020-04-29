@@ -9,14 +9,11 @@ Three words: hackathon, OCR, EAST =)
 
 ## Description
 - written in Keras
-- end-to-end CRNN model that follows
-    | Feature Extraction | Transform Layers | Sequence Labeling    | Loss                    |
-    | ------------------ | ---------------- | -------------------- | ----------------------- |
-    | ResNet50/Darknet53 | STN/FC layers    | biLSTM/AttentionLSTM | CTC/Joint CTC-Attention |
-- Feature Extraction (_refers to [feature_extraction.py](feature_extraction.py)_)
-  - [ResNet50v2](https://arxiv.org/pdf/1603.05027.pdf)
-    ![proposed resnet](helper/images/resnetv2-proposed.png)
-    -  Using pre-activation weight to address faster convergence when scaling the number of layers for each model
+- Text Recognition
+  - 4 layers of STR model that follows
+      | Transform layer | Feature Extraction | Sequence Labeling    | Encoder                 |
+      | --------------- | ------------------ | -------------------- | ----------------------- |
+      | STN             | ResNet50/Darknet53 | biLSTM/AttentionLSTM | CTC/Joint CTC-Attention |
 
 ## Todoist
 * ~~__URGENT__: Improve runtime for linking different file~~

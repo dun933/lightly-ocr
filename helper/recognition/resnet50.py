@@ -1,5 +1,4 @@
 """
-Feature Extractor utilizing CNN. Takes inputs from a STN then returns a feature maps towards a sequence net (LSTM)
 - a modified ResNet V2 implementation in Keras
 - ported from keras-applications
     - Using LeakyReLU for faster training time
@@ -126,7 +125,8 @@ def resnet50v2(input_tensor=None, input_shape=None, pooling=None, classes=1000, 
         x = stack_2(x, 256, 6, name='conv4')
         x = stack_2(x, 512, 3, stride1=1, name='conv5')
         return x
-    model = resnet(stack_fn, preact=True, use_bias=True, model_name='resnet50v2', axis=3, input_tensor=input_tensor, input_shape=input_shape, pooling=pooling, classes=classes, **kwargs)
+    model = resnet(stack_fn, preact=True, use_bias=True, model_name='resnet50v2', axis=3,
+                   input_tensor=input_tensor, input_shape=input_shape, pooling=pooling, classes=classes, **kwargs)
     if debug:
         model.compile(optimizer='adam', loss='mse')
         model.summary()
