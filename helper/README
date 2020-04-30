@@ -1,12 +1,11 @@
 OCR => detector => recognition
 - shared same backbone for both stages
-    - backbone: efficientNet vs resNet
-    - detector: CRAFT/YOLO
-    - transform : STN
-    - sequence labeling : biLSTM/biGRU
-    - encoding layer: Attention/CTC
+    - backbone: efficientNet vs resNet => DONE
+    - detector : STN with locnet / CRAFT
+    - sequence labeling : biLSTM => DONE
+    - prediction layer: Attention/CTC => DONE
 
 
 - backbone:efficientNet vs resNet
     - implements residual network
-    - shortcut connection
+    - efficientnetB3's params: 10M whereas resnet's are 23M => smaller architecture yet claimed to be perform better than resnet

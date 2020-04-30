@@ -97,6 +97,7 @@ def resnet(stack_fn, preact=True, use_bias=True, model_name='resnet', axis=3, in
         - classes<int, default=1000>: number of classes to classify images, depends on the dataset
     return:
         - resnet<tf.Model>: a model instance'''
+    # TODO: added pooling options for FC layers
     if not isinstance(input_tensor, tf.Tensor):
         if not isinstance(input_shape, tuple):
             raise AttributeError(f'if not provide an input tensor then need input_shape<tuple>, got {type(input_shape)} instead')
@@ -118,7 +119,7 @@ def resnet(stack_fn, preact=True, use_bias=True, model_name='resnet', axis=3, in
     return Model(input_tensor, x, name=model_name)
 
 # resnet50v2
-def resnet50v2(input_tensor=None, input_shape=None, pooling=None, classes=1000, debug=False, **kwargs):
+def resnet50v2(input_tensor=None, input_shape=None, pooling=None, classes=1000, **kwargs):
     def stack_fn(x):
         x = stack_2(x, 64, 3, name='conv2')
         x = stack_2(x, 128, 4, name='conv3')
@@ -127,9 +128,6 @@ def resnet50v2(input_tensor=None, input_shape=None, pooling=None, classes=1000, 
         return x
     model = resnet(stack_fn, preact=True, use_bias=True, model_name='resnet50v2', axis=3,
                    input_tensor=input_tensor, input_shape=input_shape, pooling=pooling, classes=classes, **kwargs)
-    if debug:
-        model.compile(optimizer='adam', loss='mse')
-        model.summary()
     return model
 # run resnet50v2 for testing
 # model = resnet50v2(Input(shape=(320, 320, 3)), debug=True)

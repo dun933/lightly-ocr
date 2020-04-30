@@ -93,7 +93,8 @@ def block(inputs, activation_fn=swish, drop_rate=0., name='', filters_in=32, fil
         id_skip: boolean.
         axis: batch location for `channel_last`
     returns:
-        output tensor for the block.'''
+        output tensor for the block.
+    '''
     filters = filters_in * expand_ratio
     if expand_ratio != 1:
         x = Conv2D(filters, 1, padding='same', use_bias=False, kernel_initializer=CONV_KERNEL_INITIALIZER, name=f'{name}_expand_conv')(inputs)
@@ -104,7 +105,7 @@ def block(inputs, activation_fn=swish, drop_rate=0., name='', filters_in=32, fil
 
     # Depthwise Convolution
     if strides == 2:
-        x = ZeroPadding2D(padding=correct_pad(backend, x, kernel_size),
+        x = ZeroPadding2D(padding=correct_pad(x, kernel_size),
                           name=f'{name}_dwconv_pad')(x)
         conv_pad = 'valid'
     else:
@@ -122,7 +123,7 @@ def block(inputs, activation_fn=swish, drop_rate=0., name='', filters_in=32, fil
     if 0 < se_ratio <= 1:
         filters_se = max(1, int(filters_in * se_ratio))
         se = GlobalAveragePooling2D(name=f'{name}_se_squeeze')(x)
-        if bn_axis == 1:
+        if axis == 1:
             se = Reshape((filters, 1, 1), name=f'{name}_se_reshape')(se)
         else:
             se = Reshape((1, 1, filters), name=f'{name}_se_reshape')(se)
@@ -166,9 +167,8 @@ def efficientnet(width_coefficient,
                  activation_fn=swish,
                  blocks_args=DEFAULT_BLOCKS_ARGS,
                  model_name='efficientnet',
-                 classes=1000,
-                 **kwargs)
-   if not isinstance(input_tensor, tf.Tensor):
+                 classes=1000,**kwargs):
+    if not isinstance(input_tensor, tf.Tensor):
         if not isinstance(input_shape, tuple):
             raise AttributeError(f'if not provide an input tensor then need input_shape<tuple>, got {type(input_shape)} instead')
         else:
@@ -197,7 +197,7 @@ def efficientnet(width_coefficient,
     x = Activation(activation_fn, name='stem_swish')(x)
 
     # build blocks
-    block_args = deepcopy(block_args)
+    block_args = deepcopy(blocks_args)
     b = 0
     blocks = float(sum(args['repeats'] for args in block_args))
     for (i, args) in enumerate(block_args):
