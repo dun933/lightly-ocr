@@ -1,7 +1,7 @@
 """
 EfficientNet B3 implementation in Keras
-- ported from keras-applications
-# Reference paper
+    - ported from keras-applications
+Reference:
     - [EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks](https://arxiv.org/abs/1905.11946)
 """
 import os
@@ -51,13 +51,14 @@ DENSE_KERNEL_INITIALIZER = {
 }
 
 def correct_pad(inputs, kernel_size):
-    """Returns a tuple for zero-padding for 2D convolution with downsampling. Use `channel_last`
+    '''
+    Returns a tuple for zero-padding for 2D convolution with downsampling. Use `channel_last`
     args:
         input_size: An integer or tuple/list of 2 integers.
         kernel_size: An integer or tuple/list of 2 integers.
     returns:
         A tuple.
-    """
+    '''
     img_dim = 1
     input_size = inputs.shape[img_dim:(img_dim + 2)]
 
@@ -78,7 +79,8 @@ def swish(x):
     return x * tf.nn.sigmoid(x)
 
 def block(inputs, activation_fn=swish, drop_rate=0., name='', filters_in=32, filters_out=16, kernel_size=3, strides=1, expand_ratio=1, se_ratio=0., id_skip=True, axis=3):
-    '''inverted residual block.
+    '''
+    inverted residual block.
     args:
         inputs<tf.Tensor>: input tensor
         activation_fn: activation function
@@ -167,7 +169,7 @@ def efficientnet(width_coefficient,
                  activation_fn=swish,
                  blocks_args=DEFAULT_BLOCKS_ARGS,
                  model_name='efficientnet',
-                 classes=1000,**kwargs):
+                 classes=1000, **kwargs):
     if not isinstance(input_tensor, tf.Tensor):
         if not isinstance(input_shape, tuple):
             raise AttributeError(f'if not provide an input tensor then need input_shape<tuple>, got {type(input_shape)} instead')
@@ -177,7 +179,7 @@ def efficientnet(width_coefficient,
         inputs = input_tensor
 
     def round_filters(filters, divisor=depth_divisor):
-        """Round number of filters based on depth multiplier."""
+        '''Round number of filters based on depth multiplier.'''
         filters *= width_coefficient
         new_filters = max(divisor, int(filters + divisor / 2) // divisor * divisor)
         # Make sure that round down does not go down by more than 10%.
@@ -186,13 +188,13 @@ def efficientnet(width_coefficient,
         return int(new_filters)
 
     def round_repeats(repeats):
-        """Round number of repeats based on depth multiplier."""
+        '''Round number of repeats based on depth multiplier.'''
         return int(math.ceil(depth_coefficient * repeats))
 
     # build stem
     x = inputs
-    x = ZeroPadding2D(padding=correct_pad(x, 3),name='stem_conv_pad')(x)
-    x = Conv2D(round_filters(32), 3,strides=2, padding='valid', use_bias=False, kernel_initializer=CONV_KERNEL_INITIALIZER, name='stem_conv')(x)
+    x = ZeroPadding2D(padding=correct_pad(x, 3), name='stem_conv_pad')(x)
+    x = Conv2D(round_filters(32), 3, strides=2, padding='valid', use_bias=False, kernel_initializer=CONV_KERNEL_INITIALIZER, name='stem_conv')(x)
     x = BatchNormalization(axis=axis, name='stem_bn')(x)
     x = Activation(activation_fn, name='stem_swish')(x)
 
@@ -223,7 +225,7 @@ def efficientnet(width_coefficient,
                name='top_conv')(x)
     x = BatchNormalization(axis=axis, name='top_bn')(x)
     x = Activation(activation_fn, name='top_activation')(x)
-    return Model(inputs, x,name=model_name)
+    return Model(inputs, x, name=model_name)
 
 def efficientnetB3(input_tensor=None,
                    input_shape=None,

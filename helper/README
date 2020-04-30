@@ -1,9 +1,16 @@
 OCR => detector => recognition
 - shared same backbone for both stages
-    - backbone: efficientNet vs resNet => DONE
-    - detector : STN with locnet / CRAFT
+- backbone: efficientNet vs resNet => DONE (refers to tensorflow.keras)
+- detector:
+    - bbox: YOLOv1
+- recognition:
+    - feature extraction: refers to backbone
     - sequence labeling : biLSTM => DONE
-    - prediction layer: Attention/CTC => DONE
+    - transcriptiion layer: Attention/CTC => DONE
+
+- TODO:
+    - added weight options in both efficientnet and resnet to use `imagenet` weights
+    - consider transform image in data augmentation instead of STN
 
 
 - backbone:efficientNet vs resNet

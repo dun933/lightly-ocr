@@ -1,11 +1,11 @@
 """
-- a modified ResNet V2 implementation in Keras
-- ported from keras-applications
+modified ResNet V2 implementation in Keras
+    - ported from keras-applications
     - Using LeakyReLU for faster training time
-# Reference paper
-- [Deep Residual Learning for Image Recognition](https://arxiv.org/abs/1512.03385) (CVPR 2016 Best Paper Award)
-- [Identity Mappings in Deep Residual Networks](https://arxiv.org/abs/1603.05027) (ECCV 2016)
-- [Aggregated Residual Transformations for Deep Neural Networks](https://arxiv.org/abs/1611.05431) (CVPR 2017)
+Reference:
+    - [Deep Residual Learning for Image Recognition](https://arxiv.org/abs/1512.03385) (CVPR 2016 Best Paper Award)
+    - [Identity Mappings in Deep Residual Networks](https://arxiv.org/abs/1603.05027) (ECCV 2016)
+    - [Aggregated Residual Transformations for Deep Neural Networks](https://arxiv.org/abs/1611.05431) (CVPR 2017)
 """
 import numpy as np
 import tensorflow as tf
@@ -17,15 +17,16 @@ from functools import wraps
 # test wrapper functions of resnet50v2
 @wraps(ResNet50V2)
 def resnet50_wrapper(inputs, **kwargs):
-    '''kwrapper of ResNet50V2, include_top=False
-        args:
-            inputs<tf.Tensor>: 4d tensors with [batch, h, w, c]
-            include_top<bool>: whether added top layers ,returns True or False
-        returns:
-            resnet50v2
-        Reference:
-            https://github.com/tensorflow/tensorflow/tensorflow/python/keras/applications/resnet_v2.py#L33
-            [Indentity Mappings in Deep Residual Network](https://arxiv.org/pdf/1603.05027.pdf)'''
+    '''
+    wrapper of ResNet50V2, include_top=False
+    args:
+        inputs<tf.Tensor>: 4d tensors with [batch, h, w, c]
+        include_top<bool>: whether added top layers ,returns True or False
+    returns:
+        resnet50v2
+    reference:
+        https://github.com/tensorflow/tensorflow/tensorflow/python/keras/applications/resnet_v2.py#L33
+        [Indentity Mappings in Deep Residual Network](https://arxiv.org/pdf/1603.05027.pdf)'''
     kwrapper = {'weights': None}
     kwrapper['input_tensor'] = inputs if isinstance(inputs, tf.Tensor) else None
     # only need input_shape when include_top=False
@@ -39,7 +40,8 @@ def resnet50_wrapper(inputs, **kwargs):
 # ported from keras-applicaions/resnet-common.py
 
 def block_2(x, filters, kernel_size=3, strides=1, axis=3, shortcut=False, name=None):
-    '''second residual block, implements preactivation to weights
+    '''
+    residual block, implements preactivation to weights
     args:
         - x<tf.Tensor>: inputs tensor
         - filters<int32>: filters for layer
@@ -68,7 +70,8 @@ def block_2(x, filters, kernel_size=3, strides=1, axis=3, shortcut=False, name=N
     return x
 
 def stack_2(x, filters, blocks, stride1=2, name=None):
-    '''stacked residual blocks
+    '''
+    stacked residual blocks
     args:
         - x<tf.Tensor>: input tensor
         - filters<int32>: filters of bot layer
@@ -84,7 +87,8 @@ def stack_2(x, filters, blocks, stride1=2, name=None):
     return x
 
 def resnet(stack_fn, preact=True, use_bias=True, model_name='resnet', axis=3, input_tensor=None, input_shape=None, pooling=None, classes=1000, **kwargs):
-    '''full resnet blown resnet backbone
+    '''
+    full resnet blown resnet backbone
     args:
         - stack_fn<functions>:function returns output tensor for stacked residual blocks
         - preact<bool, default=True>: use preactivation, true for resnet_v2
@@ -129,6 +133,3 @@ def resnet50v2(input_tensor=None, input_shape=None, pooling=None, classes=1000, 
     model = resnet(stack_fn, preact=True, use_bias=True, model_name='resnet50v2', axis=3,
                    input_tensor=input_tensor, input_shape=input_shape, pooling=pooling, classes=classes, **kwargs)
     return model
-# run resnet50v2 for testing
-# model = resnet50v2(Input(shape=(320, 320, 3)), debug=True)
-# print(model.output.get_shape())
