@@ -14,6 +14,29 @@ from tensorflow.keras.layers import *
 from tensorflow.keras.applications.resnet_v2 import ResNet50V2
 from functools import wraps
 
+BASE_WEIGHTS_PATH = (
+    'https://github.com/keras-team/keras-applications/'
+    'releases/download/resnet/')
+WEIGHTS_HASHES = {
+    'resnet50': ('2cb95161c43110f7111970584f804107',
+                 '4d473c1dd8becc155b73f8504c6f6626'),
+    'resnet101': ('f1aeb4b969a6efcfb50fad2f0c20cfc5',
+                  '88cf7a10940856eca736dc7b7e228a21'),
+    'resnet152': ('100835be76be38e30d865e96f2aaae62',
+                  'ee4c566cf9a93f14d82f913c2dc6dd0c'),
+    'resnet50v2': ('3ef43a0b657b3be2300d5770ece849e0',
+                   'fac2f116257151a9d068a22e544a4917'),
+    'resnet101v2': ('6343647c601c52e1368623803854d971',
+                    'c0ed64b8031c3730f411d2eb4eea35b5'),
+    'resnet152v2': ('a49b44d1979771252814e80f8ec446f9',
+                    'ed17cf2e0169df9d443503ef94b23b33'),
+    'resnext50': ('67a5b30d522ed92f75a1f16eef299d1a',
+                  '62527c363bdd9ec598bed41947b379fc'),
+    'resnext101': ('34fb605428fcc7aa4d62f44404c11509',
+                   '0f678c91647380debd923963594981b3')
+}
+
+
 # test wrapper functions of resnet50v2
 @wraps(ResNet50V2)
 def resnet50_wrapper(inputs, **kwargs):
@@ -86,7 +109,7 @@ def stack_2(x, filters, blocks, stride1=2, name=None):
     x = block_2(x, filters, strides=stride1, name=f'{name}_block_{str(blocks)}')
     return x
 
-def resnet(stack_fn, preact=True, use_bias=True, model_name='resnet', axis=3, input_tensor=None, input_shape=None, pooling=None, classes=1000, **kwargs):
+def resnet(stack_fn, preact=True, use_bias=True, model_name='resnet', axis=3, input_tensor=None, input_shape=None, pooling=None, classes=1000,weights='imagenet',**kwargs):
     '''
     full resnet blown resnet backbone
     args:
@@ -102,6 +125,16 @@ def resnet(stack_fn, preact=True, use_bias=True, model_name='resnet', axis=3, in
     return:
         - resnet<tf.Model>: a model instance'''
     # TODO: added pooling options for FC layers
+    if not (weights in {'imagenet', None} or os.path.exists(weights)):
+        raise ValueError('The `weights` argument should be either '
+                         '`None` (random initialization), `imagenet` '
+                         '(pre-training on ImageNet), '
+                         'or the path to the weights file to be loaded.')
+
+    if weights == 'imagenet' and classes != 1000:
+        raise ValueError('If using `weights` as `"imagenet"` with `include_top`'
+                         ' as true, `classes` should be 1000')
+
     if not isinstance(input_tensor, tf.Tensor):
         if not isinstance(input_shape, tuple):
             raise AttributeError(f'if not provide an input tensor then need input_shape<tuple>, got {type(input_shape)} instead')
@@ -120,16 +153,25 @@ def resnet(stack_fn, preact=True, use_bias=True, model_name='resnet', axis=3, in
     if preact is True:
         x = BatchNormalization(axis=axis, epsilon=1.001e-5, name='post_bn')(x)
         x = Activation('relu', name='post_relu')(x)
-    return Model(input_tensor, x, name=model_name)
+    model = Model(input_tensor, x, name=model_name)
+    if weights == 'imagenet' and model_name in WEIGHTS_HASHES:
+        fname = model_name + '_weights_tf_dim_ordering_tf_kernels_notop.h5'
+        fhash = WEIGHTS_HASHES[model_name][1]
+        wpath = tf.keras.utils.get_file(fname, BASE_WEIGHTS_PATH + fname, cache_subdir='models', file_hash=fhash)
+        model.load_weights(wpath)
+    elif weights is not None:
+        model.load_weights(weights)
+    return model
+
 
 # resnet50v2
-def resnet50v2(input_tensor=None, input_shape=None, pooling=None, classes=1000, **kwargs):
+def resnet50v2(input_tensor=None, input_shape=None, pooling=None, classes=1000, weights='imagenet', **kwargs):
     def stack_fn(x):
         x = stack_2(x, 64, 3, name='conv2')
         x = stack_2(x, 128, 4, name='conv3')
         x = stack_2(x, 256, 6, name='conv4')
         x = stack_2(x, 512, 3, stride1=1, name='conv5')
         return x
-    model = resnet(stack_fn, preact=True, use_bias=True, model_name='resnet50v2', axis=3,
+    model = resnet(stack_fn, preact=True, use_bias=True, model_name='resnet50v2', axis=3, weights=weights,
                    input_tensor=input_tensor, input_shape=input_shape, pooling=pooling, classes=classes, **kwargs)
     return model

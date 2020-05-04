@@ -1,6 +1,7 @@
 OCR => detector => recognition
+
 - shared same backbone for both stages
-- backbone: efficientNet vs resNet => DONE (refers to tensorflow.keras)
+- backbone: efficientnet vs resnet => DONE (refers to tensorflow.keras)
 - detector:
     - bbox: YOLOv1
 - recognition:
@@ -13,6 +14,6 @@ OCR => detector => recognition
     - consider transform image in data augmentation instead of STN
 
 
-- backbone:efficientNet vs resNet
+- backbone:efficientnet vs resnet
     - implements residual network
     - efficientnetB3's params: 10M whereas resnet's are 23M => smaller architecture yet claimed to be perform better than resnet

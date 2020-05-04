@@ -11,6 +11,30 @@ from copy import deepcopy
 from tensorflow.keras import Model
 from tensorflow.keras.layers import *
 
+
+BASE_WEIGHTS_PATH = (
+    'https://github.com/Callidior/keras-applications/'
+    'releases/download/efficientnet/')
+
+WEIGHTS_HASHES = {
+    'b0': ('e9e877068bd0af75e0a36691e03c072c',
+           '345255ed8048c2f22c793070a9c1a130'),
+    'b1': ('8f83b9aecab222a9a2480219843049a1',
+           'b20160ab7b79b7a92897fcb33d52cc61'),
+    'b2': ('b6185fdcd190285d516936c09dceeaa4',
+           'c6e46333e8cddfa702f4d8b8b6340d70'),
+    'b3': ('b2db0f8aac7c553657abb2cb46dcbfbb',
+           'e0cf8654fad9d3625190e30d70d0c17d'),
+    'b4': ('ab314d28135fe552e2f9312b31da6926',
+           'b46702e4754d2022d62897e0618edc7b'),
+    'b5': ('8d60b903aff50b09c6acf8eaba098e09',
+           '0a839ac36e46552a881f2975aaab442f'),
+    'b6': ('a967457886eac4f5ab44139bdd827920',
+           '375a35c17ef70d46f9c664b03b4437f2'),
+    'b7': ('e964fd6e26e9a4c144bcb811f2a10f20',
+           'd55674cc46b805f4382d18bc08ed43c1')
+}
+
 DEFAULT_BLOCKS_ARGS = [
     {'kernel_size': 3, 'repeats': 1, 'filters_in': 32, 'filters_out': 16,
      'expand_ratio': 1, 'id_skip': True, 'strides': 1, 'se_ratio': 0.25},
@@ -169,7 +193,19 @@ def efficientnet(width_coefficient,
                  activation_fn=swish,
                  blocks_args=DEFAULT_BLOCKS_ARGS,
                  model_name='efficientnet',
+                 weights='imagenet',
                  classes=1000, **kwargs):
+
+    if not (weights in {'imagenet', None} or os.path.exists(weights)):
+        raise ValueError('The `weights` argument should be either '
+                         '`None` (random initialization), `imagenet` '
+                         '(pre-training on ImageNet), '
+                         'or the path to the weights file to be loaded.')
+
+    if weights == 'imagenet' and classes != 1000:
+        raise ValueError('If using `weights` as `"imagenet"` with `include_top`'
+                         ' as true, `classes` should be 1000')
+
     if not isinstance(input_tensor, tf.Tensor):
         if not isinstance(input_shape, tuple):
             raise AttributeError(f'if not provide an input tensor then need input_shape<tuple>, got {type(input_shape)} instead')
@@ -225,13 +261,24 @@ def efficientnet(width_coefficient,
                name='top_conv')(x)
     x = BatchNormalization(axis=axis, name='top_bn')(x)
     x = Activation(activation_fn, name='top_activation')(x)
-    return Model(inputs, x, name=model_name)
+    model = Model(inputs, x, name=model_name)
+    if weights == 'imagenet':
+        wfile = '_weights_tf_dim_ordering_tf_kernels_autoaugment_notop.h5'
+        whash = WEIGHTS_HASHES[model_name[-2:]][1]
+        file_name = model_name + wfile
+        weights_path = tf.keras.utils.get_file(file_name, BASE_WEIGHTS_PATH + file_name, cache_subdir='models', file_hash=whash)
+        model.load_weights(weights_path)
+    elif weight is not None:
+        model.load_weights(weights)
+    return model
+
 
 def efficientnetB3(input_tensor=None,
                    input_shape=None,
                    classes=1000,
+                   weights='None',
                    **kwargs):
     return efficientnet(1.2, 1.4, 300, 0.3,
-                        model_name='efficientnet-b3',
+                        model_name='efficientnet-b3', weights=weights,
                         input_tensor=input_tensor, input_shape=input_shape, classes=classes,
                         **kwargs)
