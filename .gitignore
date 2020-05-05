@@ -132,4 +132,4 @@ _.*
 ._.*
 ._*
 .DS_STORE
-train.py
+train.ipynb

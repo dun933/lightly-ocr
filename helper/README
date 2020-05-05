@@ -1,19 +1,15 @@
-OCR => detector => recognition
+OCR => localization => recognition
+- goal: written purely in tensorflow and keras
 
-- shared same backbone for both stages
-- backbone: efficientnet vs resnet => DONE (refers to tensorflow.keras)
-- detector:
-    - bbox: YOLOv1
-- recognition:
-    - feature extraction: refers to backbone
-    - sequence labeling : biLSTM => DONE
-    - transcriptiion layer: Attention/CTC => DONE
+- shares same backbone architecture => efficientnet
+- localization: CRAFT
+- recognizer: CRNN
+
 
 - TODO:
     - added weight options in both efficientnet and resnet to use `imagenet` weights
     - consider transform image in data augmentation instead of STN
 
+- localization: vgg16_unet => pseudo_gt => affinity and region
 
-- backbone:efficientnet vs resnet
-    - implements residual network
-    - efficientnetB3's params: 10M whereas resnet's are 23M => smaller architecture yet claimed to be perform better than resnet
+- recognizer: efficientnet => biLSTM => CTC

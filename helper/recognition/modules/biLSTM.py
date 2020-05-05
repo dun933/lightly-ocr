@@ -8,7 +8,7 @@ import tensorflow as tf
 from tensorflow.keras import Model
 from tensorflow.keras.layers import LSTM, Add, BatchNormalization, Concatenate, Dense, Activation
 
-def biLSTM(inputs, hidden_size, num_classes=1000, **kwargs):
+def biLSTM(inputs, hidden_size, characters='', **kwargs):
     '''
     args:
         inputs<tf.Tensor>: connecting layers shape [batch, timesteps, features]
@@ -32,7 +32,6 @@ def biLSTM(inputs, hidden_size, num_classes=1000, **kwargs):
     merged_1 = BatchNormalization()(merged_1)
     merged_2 = Concatenate()(stack_func(merged_1))
     merged_2 = BatchNormalization()(merged_2)
-    outputs = Dense(num_classes, kernel_initializer='he_normal', name='dense_b4_ctc')(merged_2)
+    outputs = Dense(len(characters), kernel_initializer='he_normal', activation='softmax', name='dense_b4_ctc')(merged_2)
     # since we only care about the output rather than the model itself, return y_pred instead of Model(inputs, outputs)
-    y_pred = Activation('softmax', name='softmax_b4_ctc')(outputs)
-    return y_pred
+    return outputs
