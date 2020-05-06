@@ -1,4 +1,4 @@
 tensorflow-gpu
 keras
 numpy
-pandas
+imgaug

@@ -4,9 +4,9 @@ implements CRNN models as text recognition
 import tensorflow as tf
 from tensorflow.keras import Model
 from tensorflow.keras.layers import *
-from modules.efficientnet import efficientnetB3
-from modules.resnet50 import resnet50v2
-from modules.biLSTM import biLSTM
+from .modules.efficientnet import efficientnetB3
+from .modules.resnet50 import resnet50v2
+from .modules.biLSTM import biLSTM
 
 def ctc_lambda_fn(args):
     y_pred, labels, input_length, label_length = args
