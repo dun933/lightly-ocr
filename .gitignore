@@ -133,3 +133,4 @@ _.*
 ._*
 .DS_STORE
 train.ipynb
+*.json

@@ -1,0 +1,3 @@
+[submodule "src/recognition/data/coco-text"]
+	path = src/recognition/data/coco-text
+	url = https://github.com/bgshih/coco-text
