@@ -1,3 +1,0 @@
-[submodule "src/data/coco-text"]
-	path = src/data/coco-text
-	url = https://github.com/bgshih/coco-text
