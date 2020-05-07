@@ -1,4 +1,7 @@
 tensorflow-gpu
 keras
 numpy
+opencv-python
 imgaug
+keras-ocr
+editdistance

@@ -32,6 +32,6 @@ def biLSTM(inputs, hidden_size, characters='', **kwargs):
     merged_1 = BatchNormalization()(merged_1)
     merged_2 = Concatenate()(stack_func(merged_1))
     merged_2 = BatchNormalization()(merged_2)
-    outputs = Dense(len(characters), kernel_initializer='he_normal', activation='softmax', name='dense_b4_ctc')(merged_2)
+    outputs = Dense(len(characters)+1, kernel_initializer='he_normal', activation='softmax', name='dense_b4_ctc')(merged_2)
     # since we only care about the output rather than the model itself, return y_pred instead of Model(inputs, outputs)
     return outputs

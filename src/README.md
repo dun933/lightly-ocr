@@ -1,3 +1,5 @@
+# Pipelines
+
 OCR => localization => recognition
 - goal: written purely in tensorflow and keras
 
