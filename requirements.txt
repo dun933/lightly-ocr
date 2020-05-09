@@ -1,7 +1,3 @@
-tensorflow-gpu
-keras
-numpy
-opencv-python
-imgaug
-keras-ocr
-editdistance
+torch
+torchvision
+pytorch-summary

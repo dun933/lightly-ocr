@@ -137,4 +137,7 @@ _.*
 archived/
 train*
 cocotext/
+models/*
 logs/
+__init__.py
+*.png
