@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.autograd import Variable
 from .backbone import init_weights
 
 class RefineNet(nn.Module):

@@ -1,3 +1,5 @@
 torch
 torchvision
-pytorch-summary
+lmdb
+colour
+skimage

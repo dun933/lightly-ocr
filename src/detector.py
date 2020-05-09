@@ -15,11 +15,10 @@ import torch
 import torch.backends.cudnn as cudnn
 import torch.nn as nn
 from skimage import io
-from torch.autograd import Variable
 
-from detector.utils import imgproc
-from detector.utils.CRAFT import *
-from detector.CRAFT import CRAFT
+from detection.utils import imgproc
+from detection.utils.CRAFT import *
+from detection.CRAFT import CRAFT
 
 DATASET = (Path(__file__).parent / '..' / 'models').resolve()
 
@@ -84,7 +83,7 @@ class Detector:
 
         x = imgproc.normalizeMeanVariance(img_resized)
         x = torch.from_numpy(x).permute(2, 0, 1) # [h x w x c] -> [c x h x w]
-        x = Variable(x.unsqueeze(0))
+        x = torch.Tensor(x.unsqueeze(0))
         if self.cuda:
             x = x.cuda()
         y, feature = self.net(x)
@@ -139,8 +138,8 @@ class Detector:
 
         roi = list() # extract ROI
         for rect in sorted(rects, key=cmp_to_key(compare_rects)):
-            x0,y0,x1,y1=rect
-            sub = image[x0:x1,y0:y1,:]
+            x0, y0, x1, y1 = rect
+            sub = image[x0:x1, y0:y1, :]
             roi.append(sub)
 
         return roi, boxes, polys, image
