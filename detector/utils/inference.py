@@ -1,7 +1,6 @@
+import numpy as np
 import cv2
 import math
-import numpy as np
-
 
 def getDetBoxes_core(text_map, link_map, text_threshold, link_threshold, low_text):
     # prepare data

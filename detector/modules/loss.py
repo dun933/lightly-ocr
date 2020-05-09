@@ -1,9 +1,5 @@
-"""
-Reference: https://github.com/RubanSeven/CRAFT_keras/blob/master/module/loss.py
-"""
 import tensorflow as tf
 import tensorflow.keras.backend as K
-
 
 def ohem(loss, fg_mask, bg_mask, negative_ratio=3.):
     fg_num = tf.reduce_sum(fg_mask)

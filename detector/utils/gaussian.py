@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 
-
 def gaussian_2d():
     """
     Create a 2-dimensional isotropic Gaussian map.

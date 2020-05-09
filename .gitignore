@@ -134,6 +134,7 @@ _.*
 .DS_STORE
 *.ipynb
 *.json
+archived/
 train*
 cocotext/
 logs/

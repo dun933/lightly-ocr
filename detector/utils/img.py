@@ -1,12 +1,10 @@
 import cv2
 import numpy as np
 from skimage import io
-from .boxes import cal_affinity_boxes
+from .box import cal_affinity_boxes
 
-# RGB
 NORMALIZE_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32) * 255.0
 NORMALIZE_VARIANCE = np.array([0.229, 0.224, 0.225], dtype=np.float32) * 255.0
-
 
 def load_image(img_path):
     """

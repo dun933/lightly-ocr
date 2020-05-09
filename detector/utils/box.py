@@ -1,7 +1,6 @@
 import math
 import numpy as np
 
-
 def cal_slope(p1, p2):
     return (p2[1] - p1[1]) / (p2[0] - p1[0] + 1e-5)
 
@@ -173,30 +172,3 @@ def cal_affinity_boxes(region_box_list, reorder_point_flag=True, reorder_box_fla
         reorder_affinity_box = reorder_points(affinity_box)
         affinity_box_list.append(reorder_affinity_box)
     return affinity_box_list
-
-
-if __name__ == '__main__':
-    # import cv2
-    # img = np.zeros((512, 512, 3), dtype=np.uint8)
-    # pts = [(251,  96), (284, 112), (267, 112), (253, 118)]
-    # for i in range(4):
-    #     print(pts[i])
-    #     cv2.line(img, pts[i], pts[(i + 1) % 4], (255, 0, 0))
-    # cv2.imshow('img', img)
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
-    print(reorder_points([[251, 96], [284, 112], [267, 112], [253, 118]]))
-    print(reorder_points([[0, 0], [4, 4], [4, 0], [0, 4]]))
-    print(reorder_points([[56, 25], [85, 45], [25, 80], [15, 45]]))
-
-    print(reorder_box([[[0, 0], [4, 4], [4, 0], [0, 4]],
-                       [[12, 0], [16, 4], [16, 0], [12, 4]],
-                       [[16, 0], [20, 4], [20, 0], [16, 4]],
-                       [[4, 0], [8, 4], [8, 0], [4, 4]],
-                       [[8, 0], [12, 4], [12, 0], [8, 4]]]))
-
-    print(cal_affinity_boxes([[[0, 0], [4, 4], [4, 0], [0, 4]],
-                              [[12, 0], [16, 4], [16, 0], [12, 4]],
-                              [[16, 0], [20, 4], [20, 0], [16, 4]],
-                              [[4, 0], [8, 4], [8, 0], [4, 4]],
-                              [[8, 0], [12, 4], [12, 0], [8, 4]]]))
