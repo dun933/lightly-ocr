@@ -135,9 +135,9 @@ _.*
 *.ipynb
 *.json
 archived/
-train*
+train/
 cocotext/
 *.pth
 logs/
 __init__.py
-*.png
+img/

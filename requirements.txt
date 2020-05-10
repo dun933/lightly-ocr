@@ -1,5 +1,11 @@
 torch
 torchvision
+tensorflow-gpu
+keras
+numpy
+opencv-python
+pyyaml
 lmdb
 colour
 skimage
+
