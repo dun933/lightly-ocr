@@ -16,9 +16,9 @@ import torch.backends.cudnn as cudnn
 import torch.nn as nn
 from skimage import io
 
-from detection.utils import imgproc
-from detection.utils.CRAFT import *
-from detection.CRAFT import CRAFT
+from detection.CRAFT.utils import imgproc
+from detection.CRAFT.utils.CRAFT import getDetBoxes, adjustResultCoordinates
+from detection.CRAFT.model import CRAFT
 
 DATASET = (Path(__file__).parent / '..' / 'models').resolve()
 
@@ -34,7 +34,7 @@ def _copyStateDict(state_dict):
         new_state_dict[name] = v
     return new_state_dict
 
-class Detector:
+class CRAFTDetector:
     cuda = False
     canvas_size = 1280
     magnify_ratio = 1.5
