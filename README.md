@@ -3,6 +3,7 @@
 lightly's backend - from receipt to text on browser o.o
 
 Anything that deals with ocr will can be found in `/src`, related to backend controller will can be found in `/ingress`, model is saved in `/models`
+
 _NOTES_: codebase for _CRAFT_ and _MORAN_ are ported from to original repository with some compatibility fixes to work with newer version , refers to [credits.](#credit)
 
 ## table of content.
