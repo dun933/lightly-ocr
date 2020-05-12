@@ -132,11 +132,8 @@ _.*
 ._.*
 ._*
 .DS_STORE
-*.ipynb
+train.ipynb
 *.json
-archived/
-train/
-cocotext/
 *.pth
 logs/
 __init__.py

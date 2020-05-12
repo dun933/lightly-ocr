@@ -1,0 +1,29 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+
+[packages]
+lmdb = "*"
+matplotlib = "*"
+tfa-nightly = "*"
+torch = "*"
+scikit-image = "*"
+numpy = "*"
+scipy = "*"
+torchvision = "*"
+chars2vec = "*"
+six = "*"
+tensorflow-gpu = "*"
+colour = "*"
+opencv-contrib-python = "*"
+onnx = "*"
+onnxruntime-gpu = "*"
+Pillow = "*"
+Polygon3 = "*"
+PyYAML = "*"
+
+[requires]
+python_version = "3.8"

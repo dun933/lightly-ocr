@@ -13,12 +13,12 @@ working_path = os.path.dirname(os.path.realpath(__file__))
 with open(os.path.join(working_path, 'config.yml'), 'r') as s:
     params = yaml.safe_load(s)
 
-yolo_anchors = np.array([[18, 19], [34, 19], [47, 21], [34, 35], [62, 22], [52, 34], [78, 25], [97, 27], [68, 39], [52, 54], [87, 43], [116, 34], [140, 30], [75, 63], [105, 57], [169, 40], [137, 56], [91, 90], [204, 46], [126, 84], [169, 76], [248, 54], [147, 124], [305, 60], [212, 94], [275, 111], [367, 88], [209, 164], [472, 103], [336, 198]], np.float32) / params["IMAGE_SIZE"]
+yolo_anchors = np.array([[18, 19], [34, 19], [47, 21], [34, 35], [62, 22], [52, 34], [78, 25], [97, 27], [68, 39], [52, 54], [87, 43], [116, 34], [140, 30], [75, 63], [105, 57], [169, 40], [137, 56], [91, 90], [204, 46], [126, 84], [169, 76], [248, 54], [147, 124], [305, 60], [212, 94], [275, 111], [367, 88], [209, 164], [472, 103], [336, 198]], np.float32) / params['IMAGE_SIZE']
 yolo_anchor_masks = np.array([range(20, 30), range(10, 20), range(0, 10)])
 
 
 def iou(boxA, boxB):
-    # determine the (x, y)-coordinates of the intersection rectangle
+    # return (x,y) on intersection rectangle
     xA = max(boxA[0], boxB[0])
     yA = max(boxA[1], boxB[1])
     xB = min(boxA[2], boxB[2])
@@ -236,8 +236,7 @@ def loss_layer(y_pred, y_true, anchors):
 def yolo_boxes(pred, anchors):
     # pred: (batch_size, grid, grid, anchors, (x, y, w, h, obj, ...classes))
     grid_size = tf.shape(pred)[1]
-    box_xy, box_wh, objectness, class_probs = tf.split(
-        pred, (2, 2, 1, params["NUM_CLASS"]), axis=-1)
+    box_xy, box_wh, objectness, class_probs = tf.split(pred, (2, 2, 1, params["NUM_CLASS"]), axis=-1)
 
     box_xy = tf.sigmoid(box_xy)
     objectness = tf.sigmoid(objectness)
@@ -248,8 +247,7 @@ def yolo_boxes(pred, anchors):
     grid = tf.meshgrid(tf.range(grid_size), tf.range(grid_size))
     grid = tf.expand_dims(tf.stack(grid, axis=-1), axis=2)  # [gx, gy, 1, 2]
 
-    box_xy = (box_xy + tf.cast(grid, tf.float32)) / \
-        tf.cast(grid_size, tf.float32)
+    box_xy = (box_xy + tf.cast(grid, tf.float32)) / tf.cast(grid_size, tf.float32)
     box_wh = tf.exp(box_wh) * anchors
 
     box_x1y1 = box_xy - box_wh / 2

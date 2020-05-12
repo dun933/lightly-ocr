@@ -4,47 +4,45 @@ from tensorflow.keras import Model
 from tensorflow.keras.layers import *
 
 class CRNN(Model):
-    FILTERS = [64,256,512]
-
     def __init__(self, num_classes, training):
         super(CRNN, self).__init__()
 
         kernel_initializer = tf.random_normal_initializer(0,0.05)
         bias_initializer = tf.constant_initializer(value=0.)
 
-        self.conv1 = Conv2D(filters=self.FILTERS[0], kernel_size=3, padding='same',
+        self.conv1 = Conv2D(filters=64, kernel_size=3, padding='same',
                             activation='relu', kernel_initializer=kernel_initializer, bias_initializer=bias_initializer)
         self.pool1 = MaxPool2D(pool_size=(2,2),strides=2)
 
-        self.conv2 = Conv2D(filters=self.FILTERS[0], kernel_size=3, padding='same',
+        self.conv2 = Conv2D(filters=64, kernel_size=3, padding='same',
                             activation='relu', kernel_initializer=kernel_initializer, bias_initializer=bias_initializer)
         self.pool2 = MaxPool2D(pool_size=(2,2),strides=2)
 
-        self.conv3 = Conv2D(filters=self.FILTERS[1], kernel_size=3, padding='same',
+        self.conv3 = Conv2D(filters=256, kernel_size=3, padding='same',
                             activation='relu', kernel_initializer=kernel_initializer, bias_initializer=bias_initializer)
         self.bn3 = BatchNormalization(trainable=training)
 
-        self.conv4 = Conv2D(filters=self.FILTERS[1], kernel_size=3, padding='same',
+        self.conv4 = Conv2D(filters=256, kernel_size=3, padding='same',
                             activation='relu', kernel_initializer=kernel_initializer, bias_initializer=bias_initializer)
         self.pool4 = MaxPool2D(pool_size=(2,2),strides=(2,1))
 
-        self.conv5 = Conv2D(filters=self.FILTERS[2], kernel_size=3, padding='same',
+        self.conv5 = Conv2D(filters=512, kernel_size=3, padding='same',
                             activation='relu', kernel_initializer=kernel_initializer, bias_initializer=bias_initializer)
         self.bn5 = BatchNormalization(trainable=training)
 
-        self.conv6 = Conv2D(filters=self.FILTERS[2], kernel_size=3, padding='same',
+        self.conv6 = Conv2D(filters=512, kernel_size=3, padding='same',
                             activation='relu', kernel_initializer=kernel_initializer, bias_initializer=bias_initializer)
         self.pool6 = MaxPool2D(pool_size=(2,2),strides=(2,1))
 
-        self.conv7 = Conv2D(filters=self.FILTERS[2], kernel_size=2, padding='valid',
+        self.conv7 = Conv2D(filters=512, kernel_size=2, padding='valid',
                             activation='relu',kernel_initializer=kernel_initializer, bias_initializer=bias_initializer)
 
-        self.lstm_fw_cell_1 = LSTM(self.FILTERS[1], return_sequences=True)
-        self.lstm_bw_cell_1 = LSTM(self.FILTERS[1],go_backwards=True, return_sequences=True)
+        self.lstm_fw_cell_1 = LSTM(256, return_sequences=True)
+        self.lstm_bw_cell_1 = LSTM(256,go_backwards=True, return_sequences=True)
         self.birnn1 = Bidirectional(layer=self.lstm_fw_cell_1, backward_layer=self.lstm_bw_cell_1)
 
-        self.lstm_fw_cell_2 = LSTM(self.FILTERS[1], return_sequences=True)
-        self.lstm_bw_cell_2 = LSTM(self.FILTERS[1],go_backwards=True, return_sequences=True)
+        self.lstm_fw_cell_2 = LSTM(256, return_sequences=True)
+        self.lstm_bw_cell_2 = LSTM(256,go_backwards=True, return_sequences=True)
         self.birnn2 = Bidirectional(layer=self.lstm_fw_cell_2, backward_layer=self.lstm_bw_cell_2)
 
         self.dense = Dense(num_classes, activation='relu', kernel_initializer=kernel_initializer,

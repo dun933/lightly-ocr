@@ -22,7 +22,7 @@ from detection.CRAFT.model import CRAFT
 
 DATASET = (Path(__file__).parent / '..' / 'models').resolve()
 
-def _copyStateDict(state_dict):
+def copyStateDict(state_dict):
     if list(state_dict.keys())[0].startswith('module'):
         start_idx = 1
     else:
@@ -50,10 +50,10 @@ class CRAFTDetector:
         self.net = CRAFT()
         if torch.cuda.is_available():
             self.cuda = True
-            self.net.load_state_dict(_copyStateDict(torch.load(self.trained_model)))
+            self.net.load_state_dict(copyStateDict(torch.load(self.trained_model)))
         else:
             # added compatibility for running on Mac
-            self.net.load_state_dict(_copyStateDict(torch.load(self.trained_model, map_location='cpu')))
+            self.net.load_state_dict(copyStateDict(torch.load(self.trained_model, map_location='cpu')))
 
         if self.cuda:
             self.net = self.net.cuda()
@@ -68,11 +68,11 @@ class CRAFTDetector:
             from detector.modules.refinenet import RefineNet
             self.refinenet = RefineNet()
             if self.cuda:
-                self.refinenet.load_state_dict(_copyStateDict(torch.load(self.refiner_model)))
+                self.refinenet.load_state_dict(copyStateDict(torch.load(self.refiner_model)))
                 self.refinenet = self.refinenet.cuda()
                 self.refinenet = nn.DataParallel(self.refinenet)
             else:
-                self.refinenet.load_state_dict(_copyStateDict(torch.load(self.refiner_model, map_location='cpu')))
+                self.refinenet.load_state_dict(copyStateDict(torch.load(self.refiner_model, map_location='cpu')))
 
             self.refinenet.eval()
             self.enable_polygon = True
