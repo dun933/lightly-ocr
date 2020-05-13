@@ -132,7 +132,7 @@ _.*
 ._.*
 ._*
 .DS_STORE
-train.ipynb
+*.ipynb
 *.json
 *.pth
 *.html
