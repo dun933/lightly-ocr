@@ -135,6 +135,7 @@ _.*
 train.ipynb
 *.json
 *.pth
+*.html
 logs/
 __init__.py
-img/
+test/

@@ -1,14 +1,12 @@
 lmdb
 matplotlib
-tfa_nightly
 torch
+torchvision
 scikit_image
 numpy
 scipy
-torchvision
 chars2vec
 six
-tensorflow_gpu
 colour
 opencv_contrib_python
 Pillow

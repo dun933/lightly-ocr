@@ -1,6 +1,6 @@
 import torch.nn as nn
-from .modules.morn import MORN
-from .modules.asrn_resnet import ASRN
+from morn import MORN
+from asrn_resnet import ASRN
 
 class MORAN(nn.Module):
     def __init__(self, nc, nclass, nh, targetH, targetW, bidirectional=False, inputDataType='torch.cuda.FloatTensor',maxBatch=256,CUDA=True):

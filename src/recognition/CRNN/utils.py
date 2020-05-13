@@ -1,74 +1,112 @@
-import string
-import os
+import torch
+import torch.nn as nn
+from torch.autograd import Variable
+import collections
 
-import numpy as np
-import cv2
-import yaml
+class Converter(object):
+    """convert string to label"""
+    def __init__(self, alphabet, ignore_case=True):
+        self._ignore_case = ignore_case
+        if self._ignore_case:
+            alphabet = alphabet.lower()
+        self.alphabet = alphabet + '-'
 
-working_path = os.path.dirname(os.path.realpath(__file__))
-char_dict = string.digits + string.ascii_lowercase + string.ascii_uppercase + '-'
-with open(os.path.join(working_path, 'config.yml'), 'r') as s:
-    params = yaml.safe_load(s)
-    assert params['NUM_CLASSES'] == len(char_dict), f'NUM_CLASSES should be the same with len(char_dict). got {params["NUM_CLASSES"]} instead'
+        self.char_dict = {}
+        for i, char in enumerate(alphabet):
+            self.char_dict[char] = i+1 # 0 for whitespace
 
-def decodetext(char_dict, outputs):
-    return ''.join((char_dict[i] for i in outputs))
+    def encode(self, text):
+        # returns encoded_text<torch.IntTensor> and length<torch.IntTensor>
+        if isinstance(text, str):
+            text = [self.char_dict[char.lower() if self._ignore_case else char] for char in text]
+            length = [len(text)]
+        elif isinstance(text, collections.Iterable):
+            length = [len(s) for s in text]
+            text = ''.join(text)
+            text, _ = self.encode(text)
+        return (torch.IntTensor(text),torch.IntTensor(length))
 
-def sparse_tuple_from(sequences):
-    indices, values = [], []
-    for i, seq in enumerate(sequences):
-        indices.extend(zip([i] * len(seq), range(len(seq))))
-        values.extend(seq)
+    def decode(self, t, length, raw=False):
+        # returns text converted from t and length. raw indicates whether it's a raw string or not
+        if length.numel() ==1:
+            length = length[0]
+            assert t.numel() == length, f'length and len(text) should be equal. Got {t.numel()} for len(text) and {length} for length'
+            if raw:
+                return ''.join([self.alphabet[i-1] for i in t])
+            else:
+                char_list = []
+                for i in range(length):
+                    if t[0]!=0 and (not (i>0 and t[i-1]==t[i])):
+                        char_list.append(self.alphabet[t[i]-1])
+                return ''.join(char_list)
+        else:
+            # process in batch mode
+            assert t.numel() == length.sum(), f'length and len(text) should be equal. Got {t.numel()} for len(text) and {length.sum()} for length'
+            texts = []
+            index = 0
+            for i in range(length.numel()):
+                l = length[i]
+                texts.append(self.decode(t[index:index+l], torch.IntTensor([l]), raw=raw))
+                index += l
+            return texts
 
-    indices = np.asarray(indices, dtype=np.int64)
-    values = np.asarray(values, dtype=np.int32)
-    dense_shape = np.asarray([len(sequences), np.asarray(indices).max(0)[1] + 1], dtype=np.int64)
+# refers to https://github.com/meijieru/crnn.pytorch/blob/master/utils.py#L92
+class Averager(object):
+    """Compute average for `torch.Variable` and `torch.Tensor`. """
 
-    return indices, values, dense_shape
+    def __init__(self):
+        self.reset()
 
-def preprocess(image, height=params['INPUT_SIZE'][1], width=params['INPUT_SIZE'][0]):
-    scale = height / image.shape[0]
-    tmp_w = int(scale * image.shape[1])
-    nw = width if tmp_w > width else tmp_w
-    image = cv2.resize(image, (nw, height), interpolation=cv2.INTER_LINEAR)
+    def add(self, v):
+        if isinstance(v, Variable):
+            count = v.data.numel()
+            v = v.data.sum()
+        elif isinstance(v, torch.Tensor):
+            count = v.numel()
+            v = v.sum()
 
-    r, c = np.shape(image)
-    if c > width:
-        ratio = float(width) / c
-        image = cv2.resize(image, (width, int(32 * ratio)))
-    else:
-        w_pad = width - image.shape[1]
-        image = np.pad(image, pad_width=[(0, 0), (0, w_pad)], mode='constant', constant_values=0)
+        self.n_count += count
+        self.sum += v
 
-    image = image[:, :, np.newaxis]
+    def reset(self):
+        self.n_count = 0
+        self.sum = 0
 
-    return image
+    def val(self):
+        res = 0
+        if self.n_count != 0:
+            res = self.sum / float(self.n_count)
+        return res
 
-def datagen(char_dict=char_dict, dataset='train',
-            batches=params['NUM_BATCHES'],
-            batch_size=params['BATCH_SIZE'],
-            epochs=params['EPOCHS'],
-            data_path=params['DATA_PATH']):
-    x_batch, y_batch = [],[]
-    for _ in range(epochs):
-        with open(os.path.join(data_path, f'annotation_{dataset}.txt')) as f:
-            for i in range(batches * batch_size):
-                impath = f.readline().replace('\n', '').split(' ')[0]
-                image = cv2.imread(os.path.join(data_path, impath.replace('./', '')), 0)
-                if i % 100 == 0:
-                    print(f'processed {i} images\n')
-                if image is None:
-                    continue
-                x = preprocess(image=image)
 
-                y = impath.split('_')[1]
-                y = [char_dict.index(i) if i in char_dict else len(char_dict) - 1 for i in y]
-                y = y
+def oneHot(v, v_length, nc):
+    batchSize = v_length.size(0)
+    maxLength = v_length.max()
+    v_onehot = torch.FloatTensor(batchSize, maxLength, nc).fill_(0)
+    acc = 0
+    for i in range(batchSize):
+        length = v_length[i]
+        label = v[acc:acc + length].view(-1, 1).long()
+        v_onehot[i, :length].scatter_(1, label, 1.0)
+        acc += length
+    return v_onehot
 
-                x_batch.append(x)
-                y_batch.append(y)
 
-                if len(y_batch) == batch_size:
-                    yield np.array(x_batch).astype(np.float32), np.array(y_batch)
-                    x_batch = []
-                    y_batch = []
+def loadData(v, data):
+    v.data.resize_(data.size()).copy_(data)
+
+
+def prettyPrint(v):
+    print(f'Size {str(v.size())}, Type: {v.data.type()}')
+    print(f'| Max: {v.max().data[0]} | Min: {v.min().data[0]} | Mean: {v.mean.data[0]}')
+
+
+def assureRatio(img):
+    """Ensure imgH <= imgW."""
+    b, c, h, w = img.size()
+    if h > w:
+        main = nn.UpsamplingBilinear2d(size=(h, h), scale_factor=None)
+        img = main(img)
+    return img
+
+

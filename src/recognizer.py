@@ -10,10 +10,10 @@ from torch.autograd import Variable
 from recognition.MORAN.model import MORAN
 from recognition.MORAN.utils import dataset, tools
 
-DATASET = (Path(__file__).parent / '..' / 'models').resolve()
+DATASET = (Path(__file__).parent / 'models').resolve()
 
 class MORANRecognizer:
-    model_path = str(DATASET / 'moran_v2_demo.pth')
+    model_path = str(DATASET / 'moran_v2.pth')
     alphabet = '0:1:2:3:4:5:6:7:8:9:a:b:c:d:e:f:g:h:i:j:k:l:m:n:o:p:q:r:s:t:u:v:w:x:y:z:$'
     max_iter = 20
     cuda = False
