@@ -6,6 +6,8 @@ scikit_image
 numpy
 scipy
 chars2vec
+natsort
+fire
 six
 colour
 opencv_contrib_python

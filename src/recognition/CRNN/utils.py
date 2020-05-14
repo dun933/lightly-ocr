@@ -1,6 +1,17 @@
 import torch
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+def validation(model, criterion, eval_loader, converter, config):
+    num_correct = 0
+    norm_ED = 0
+    len_data = 0
+    infer_time = 0
+    valid_loss_avg = Averager()
+
+    for i, (image_tensor, labels) in enumerate(eval_loader):
+        batch_size = image_tensor.size(0)
+        len_data += batch_size
+        image = image_tensor.to(device)
 
 class CTCLabelConverter(object):
     #  Convert between text-label and text-index

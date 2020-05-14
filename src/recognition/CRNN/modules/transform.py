@@ -30,13 +30,13 @@ class LocalizationNetwork(nn.Module):
         self.F = F
         self.num_channels = num_channels
         self.conv = nn.Sequential(
-                nn.Conv2d(self.num_channels, 64,kernel_size=3, stride=1, padding=1, bias=False), nn.BatchNorm2d(64), nn.ReLU(True)
+                nn.Conv2d(self.num_channels, 64,kernel_size=3, stride=1, padding=1, bias=False), nn.BatchNorm2d(64), nn.ReLU(True),
                 nn.MaxPool2d(2,2),
-                nn.Conv2d(64, 128,kernel_size=3, stride=1, padding=1, bias=False), nn.BatchNorm2d(128), nn.ReLU(True)
+                nn.Conv2d(64, 128,kernel_size=3, stride=1, padding=1, bias=False), nn.BatchNorm2d(128), nn.ReLU(True),
                 nn.MaxPool2d(2,2),
-                nn.Conv2d(128, 256,kernel_size=3, stride=1, padding=1, bias=False), nn.BatchNorm2d(256), nn.ReLU(True)
+                nn.Conv2d(128, 256,kernel_size=3, stride=1, padding=1, bias=False), nn.BatchNorm2d(256), nn.ReLU(True),
                 nn.MaxPool2d(2,2),
-                nn.Conv2d(256, 512,kernel_size=3, stride=1, padding=1, bias=False), nn.BatchNorm2d(512), nn.ReLU(True)
+                nn.Conv2d(256, 512,kernel_size=3, stride=1, padding=1, bias=False), nn.BatchNorm2d(512), nn.ReLU(True),
                 nn.AdaptiveAvgPool2d(1)
                 )
         self.loc_fc1 = nn.Sequential(nn.Linear(512,256), nn.ReLU(True))
