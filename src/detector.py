@@ -1,26 +1,18 @@
-import json
-import os
-import sys
-import time
-import zipfile
 from collections import OrderedDict
 from functools import cmp_to_key
 from pathlib import Path
-
-from PIL import Image
 
 import cv2
 import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
 import torch.nn as nn
-from skimage import io
 
 from detection.CRAFT import imgproc
 from detection.CRAFT.craft_utils import getDetBoxes, adjustResultCoordinates
 from detection.CRAFT.model import CRAFT
 
-DATASET = (Path(__file__).parent /  'models').resolve()
+DATASET = (Path(__file__).parent / 'models').resolve()
 
 def copyStateDict(state_dict):
     if list(state_dict.keys())[0].startswith('module'):
@@ -61,9 +53,10 @@ class CRAFTDetector:
 
         self.net.eval()
 
-
     def process(self, image):
-        img_resized, target_ratio, size_heatmap = imgproc.resize_aspect_ratio(image, self.canvas_size, interpolation=cv2.INTER_LINEAR, mag_ratio=self.magnify_ratio)
+        img_resized, target_ratio, size_heatmap = imgproc.resize_aspect_ratio(image, self.canvas_size,
+                                                                              interpolation=cv2.INTER_LINEAR,
+                                                                              mag_ratio=self.magnify_ratio)
         ratio_h = ratio_w = 1 / target_ratio
 
         x = imgproc.normalizeMeanVariance(img_resized)
