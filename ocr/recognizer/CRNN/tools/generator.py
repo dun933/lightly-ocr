@@ -74,8 +74,8 @@ def generate_dataset(root, output_path, list_path, log_path, check_valid=True):
                     continue
             except Exception:
                 with open(os.path.join(log_path, 'error_image.txt'),
-                          'a') as log:
-                    log.write(f'{str(i)}th image: errored')
+                          'w') as log:
+                    log.write(f'{str(i)}th image: errored\n')
                 continue
 
         img_key = f'image-{c}'.encode()

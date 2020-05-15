@@ -1,5 +1,6 @@
 import math
 import os
+import random
 import re
 import sys
 
@@ -9,7 +10,8 @@ import six
 import torch
 import torchvision.transforms as transforms
 from PIL import Image
-from torch.utils.data import ConcatDataset, Dataset, Subset
+from torch.utils.data import Dataset
+from torch.utils.data.sampler import Sampler
 
 
 def tensor2im(image_tensor, imtype=np.uint8):
@@ -112,120 +114,11 @@ class align_collate(object):
         return image_tensors, labels
 
 
-# https://arxiv.org/abs/1904.01906
-class BalancedDataset(object):
-    # 50-50 for synthtext and mjsynth
-    def __init__(self, config):
-        dashed = '-' * 80
-        print(dashed)
-        log = open(f'{config["log_dir"]}/log_dataset.txt', 'a')
-        log.write(dashed + '\n')
-        data_log = f'train data:{config["data_dir"]}\nselected:{config["select_data"]}\nbatch_ratio:{config["batch_ratio"]}\n'
-        print(data_log)
-        log.write(data_log + '\n')
-        assert len(config['select_data']) == len(
-            config['batch_ratio']), 'len(`select_data`) != len(`batch_ratio`)'
-
-        _align_collate = align_collate(height=config['height'],
-                                       width=config['width'],
-                                       keep_ratio_with_pad=config['pad'])
-        self.generator_, self.generator_iters = [], []
-        batch_size_ = []
-        sum_batch = 0
-
-        for selected_, batch_ratio_ in zip(config['select_data'],
-                                           config['batch_ratio']):
-            _batch_size = max(
-                round(config['batch_size'] * float(batch_ratio_)), 1)
-            print(dashed)
-            log.write(dashed + '\n')
-            _dataset, _dataset_log = hierarchical_dataset(
-                root=config['train_data'],
-                config=config,
-                select_data=[selected_])
-            sum_num_dataset = len(_dataset)
-            log.write(_dataset_log)
-
-            # total number of data can be modified with usage_ratio
-            number_dataset = int(sum_num_dataset *
-                                 float(config['usage_ratio']))
-            dataset_split = [number_dataset, sum_num_dataset - number_dataset]
-            indices = range(sum_num_dataset)
-            _dataset, _ = [
-                Subset(_dataset, indices[offset - length:offset]) for offset,
-                length in zip(_accumulate(dataset_split), dataset_split)
-            ]
-            selected_log = f'total samples: {selected_}: {sum_num_dataset} x {config["usage_ratio"]}(usage_ratio)={len(_dataset)}\n'
-            selected_log += f'num_samples per batch: {config["batch_size"]} x {float(batch_ratio_)}(batch_ratio) = {_batch_size}'
-            print(selected_log)
-            log.write(selected_log + '\n')
-            batch_size_.append(str(_batch_size))
-            sum_batch += _batch_size
-
-            _data_loader = torch.utils.data.DataLoader(
-                _dataset,
-                batch_size=_batch_size,
-                shuffle=True,
-                num_workers=int(config['workers']),
-                collate_fn=_align_collate,
-                pin_memory=True)
-            self.generator_.append(_data_loader)
-            self.generator_iters.append(iter(_data_loader))
-
-        sum_batch_log = f'{dashed}\n'
-        sum_batch_size = '+'.join(batch_size_)
-        sum_batch_log += f'total batch size: {sum_batch_size} = {sum_batch}\n{dashed}'
-        config['batch_size'] = sum_batch
-        print(sum_batch_log)
-        log.write(sum_batch_log + '\n')
-        log.close()
-
-    def get_batch(self):
-        _batch_imgs, _batch_texts = [], []
-
-        for i, loader_iters in enumerate(self.generator_iters):
-            try:
-                image, text = loader_iters.next()
-                _batch_imgs.append(image)
-                _batch_texts += text
-            except StopIteration:
-                self.generator_iters[i] = iter(self.generator_[i])
-                image, text = self.generator_iters[i].next()
-                _batch_imgs.append(image)
-                _batch_texts += text
-            except ValueError:
-                pass
-
-            _batch_imgs = torch.cat(_batch_imgs, 0)
-            return _batch_imgs, _batch_texts
-
-
-def hierarchical_dataset(root, config, select_data='/'):
-    # select data returns all subdir
-    dataset_list = []
-    dataset_log = f'dataset_root: {root}\t dataset: {select_data[0]}\n'
-    print(dataset_log)
-    for dirpath, dirnames, filenames in os.walk(root + '/'):
-        if not dirnames:
-            select_flag = False
-            for selected_ in select_data:
-                if selected_ in dirpath:
-                    select_flag = True
-                    break
-            if select_flag:
-                dataset = LMDBDataset(dirpath, config)
-                sub_dataset_log = f'subdir: /{os.path.relpath(dirpath, root)}\nnum_samples: {len(dataset)}'
-                dataset_log += f'{sub_dataset_log}\n'
-                dataset_list.append(dataset)
-
-    concat_dataset = ConcatDataset(dataset_list)
-    return concat_dataset, dataset_log
-
-
 class LMDBDataset(Dataset):
-    def __init__(self, root, config):
+    def __init__(self, root, transform=None, target_transform=None):
         self.root = root
-        self.config = config
+        self.transform = transform
+        self.target_transform = target_transform
         self.env = lmdb.open(root,
                              max_readers=32,
                              readonly=True,
@@ -240,25 +133,20 @@ class LMDBDataset(Dataset):
             num_samples = int(txn.get('num-samples'.encode()))
             self.num_samples = num_samples
 
-            if self.config['filtering']:
-                self.filtered_idx_ = [
-                    index + 1 for index in range(self.num_samples)
-                ]
-            else:
-                self.filtered_idx_ = []
-                for index in range(self.num_samples):
-                    index += 1
-                    label_key = f'label-{index}'.encode()
-                    label = txn.get(label_key).decode('utf-8')
+            self.filtered_idx_ = []
+            for index in range(self.num_samples):
+                index += 1
+                label_key = f'label-{index}'.encode()
+                label = txn.get(label_key).decode('utf-8')
 
-                    if len(label) > self.config['batch_max_len']:
-                        continue
-                    out_of_char = f'[^{self.config["character"]}]'  # remove unusual character -> future updates for special vn character
-                    if re.search(out_of_char, label.lower()):
-                        continue
-                    self.filtered_idx_.append(index)
+                if len(label) > self.config['batch_max_len']:
+                    continue
+                out_of_char = f'[^{self.config["character"]}]'  # remove unusual character -> future updates for special vn character
+                if re.search(out_of_char, label.lower()):
+                    continue
+                self.filtered_idx_.append(index)
 
-                self.num_samples = len(self.filtered_idx_)
+            self.num_samples = len(self.filtered_idx_)
 
     def __len__(self):
         return self.num_samples
@@ -268,8 +156,6 @@ class LMDBDataset(Dataset):
         index = self.filtered_idx_[index]
 
         with self.env.begin(write=False) as txn:
-            label_key = f'label-{index}'.encode()
-            label = txn.get(label_key).decode('utf-8')
             img_key = 'image-{index}'.encode()
             imgbuf = txn.get(img_key)
 
@@ -284,20 +170,41 @@ class LMDBDataset(Dataset):
 
             except IOError:
                 print(f'Corrupted image for {index}')
-                # make dummy image and dummy label for corrupted image.
-                if self.config[' rgb ']:
-                    img = Image.new(
-                        'RGB', (self.config['width'], self.config['height']))
-                else:
-                    img = Image.new(
-                        'L', (self.config['width'], self.config['height']))
-                label = '[dummy_label]'
+                # remove dummy images since it is unnecessary
+                return self[index + 1]
 
-            if not self.config['sensitive']:
-                label = label.lower()
+            if self.transform is not None:
+                img = self.transform(img)
+
+            label_key = f'label-{index}'.encode()
+            label = txn.get(label_key).decode('utf-8')
 
             # We only train and evaluate on alphanumerics (or pre-defined character set in train.py)
             out_of_char = f'[^{self.config["character"]}]'
             label = re.sub(out_of_char, '', label)
 
         return (img, label)
+
+
+class random_sequential_sampler(Sampler):
+    def __init__(self, data_, batch_size):
+        self.num_samples = len(data_)
+        self.batch_size = batch_size
+
+    def __iter__(self):
+        num_batch = len(self) // self.batch_size
+        tail = len(self) % self.batch_size  # deal with tail case
+        index = torch.LongTensor(len(self)).fill_(0)
+        for i in range(num_batch):
+            random_start = random.randint(0, len(self) - self.batch_size)
+            batch_idx = random_start + torch.range(0, self.batch_size - 1)
+            index[i * self.batch_size:(i + 1) * self.batch_size] = batch_idx
+
+        if tail:
+            random_start = random.randint(0, len(self) - self.batch_size)
+            tail_idx = random_start + torch.range(0, tail - 1)
+            index[(i + 1) * self.batch_size:] = tail_idx
+        return iter(index)
+
+    def __len__(self):
+        return self.num_samples
