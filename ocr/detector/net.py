@@ -8,11 +8,12 @@ import torch
 import torch.backends.cudnn as cudnn
 import torch.nn as nn
 
-from detection.CRAFT import imgproc
-from detection.CRAFT.craft_utils import getDetBoxes, adjustResultCoordinates
-from detection.CRAFT.model import CRAFT
+from CRAFT import imgproc
+from CRAFT.craft_utils import adjustResultCoordinates, getDetBoxes
+from CRAFT.model import VGG_UNet
 
-DATASET = (Path(__file__).parent / 'models').resolve()
+MODEL_PATH = (Path(__file__).parent / 'models').resolve()
+
 
 def copyStateDict(state_dict):
     if list(state_dict.keys())[0].startswith('module'):
@@ -26,6 +27,7 @@ def copyStateDict(state_dict):
         new_state_dict[name] = v
     return new_state_dict
 
+
 class CRAFTDetector:
     cuda = False
     canvas_size = 1280
@@ -35,16 +37,19 @@ class CRAFTDetector:
     low_text_score = 0.4
     enable_polygon = False
     enable_refiner = False
-    trained_model = str(DATASET / 'craft_mlt_25k.pth')
+    trained_model = str(MODEL_PATH / 'craft_mlt_25k.pth')
 
     def load(self):
-        self.net = CRAFT()
+        self.net = VGG_UNet()
         if torch.cuda.is_available():
             self.cuda = True
-            self.net.load_state_dict(copyStateDict(torch.load(self.trained_model)))
+            self.net.load_state_dict(
+                copyStateDict(torch.load(self.trained_model)))
         else:
             # added compatibility for running on Mac
-            self.net.load_state_dict(copyStateDict(torch.load(self.trained_model, map_location='cpu')))
+            self.net.load_state_dict(
+                copyStateDict(
+                    torch.load(self.trained_model, map_location='cpu')))
 
         if self.cuda:
             self.net = self.net.cuda()
@@ -54,13 +59,15 @@ class CRAFTDetector:
         self.net.eval()
 
     def process(self, image):
-        img_resized, target_ratio, size_heatmap = imgproc.resize_aspect_ratio(image, self.canvas_size,
-                                                                              interpolation=cv2.INTER_LINEAR,
-                                                                              mag_ratio=self.magnify_ratio)
+        img_resized, target_ratio, size_heatmap = imgproc.resize_aspect_ratio(
+            image,
+            self.canvas_size,
+            interpolation=cv2.INTER_LINEAR,
+            mag_ratio=self.magnify_ratio)
         ratio_h = ratio_w = 1 / target_ratio
 
         x = imgproc.normalizeMeanVariance(img_resized)
-        x = torch.from_numpy(x).permute(2, 0, 1) # [h x w x c] -> [c x h x w]
+        x = torch.from_numpy(x).permute(2, 0, 1)  # [h x w x c] -> [c x h x w]
         x = torch.Tensor(x.unsqueeze(0))
         if self.cuda:
             x = x.cuda()
@@ -69,11 +76,8 @@ class CRAFTDetector:
         score_text = y[0, :, :, 0].cpu().data.numpy()
         score_link = y[0, :, :, 1].cpu().data.numpy()
 
-        boxes, polys = getDetBoxes(score_text,
-                                   score_link,
-                                   self.text_threshold,
-                                   self.link_threshold,
-                                   self.low_text_score,
+        boxes, polys = getDetBoxes(score_text, score_link, self.text_threshold,
+                                   self.link_threshold, self.low_text_score,
                                    self.enable_polygon)
         boxes = adjustResultCoordinates(boxes, ratio_w, ratio_h)
         polys = adjustResultCoordinates(boxes, ratio_w, ratio_h)
@@ -94,7 +98,7 @@ class CRAFTDetector:
             if fxi <= sx:
                 return -1  # completely on above
             elif sxi <= fx:
-                return 1    # completely on below
+                return 1  # completely on below
             elif fyi <= fy:
                 return -1  # completely on left
             elif sxi <= sx:
@@ -110,7 +114,7 @@ class CRAFTDetector:
             else:
                 return 0  # same
 
-        roi = list() # extract ROI
+        roi = list()  # extract ROI
         for rect in sorted(rects, key=cmp_to_key(compare_rects)):
             x0, y0, x1, y1 = rect
             sub = image[x0:x1, y0:y1, :]

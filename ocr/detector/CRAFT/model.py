@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .backbone import vgg16_bn, init_weights
+from .vgg_bn import vgg16_bn, init_weights
 
 class UpConv(nn.Module):
     def __init__(self, in_ch, mid_ch, out_ch):
@@ -21,9 +21,9 @@ class UpConv(nn.Module):
         return x
 
 
-class CRAFT(nn.Module):
+class VGG_UNet(nn.Module):
     def __init__(self, pretrained=False, freeze=False):
-        super(CRAFT, self).__init__()
+        super(VGG_UNet, self).__init__()
 
         """ Base network """
         self.basenet = vgg16_bn(pretrained, freeze)

@@ -1,19 +1,19 @@
 from collections import OrderedDict
 from pathlib import Path
 
-from PIL import Image
-
 import cv2
 import torch
+from PIL import Image
 from torch.autograd import Variable
 
-from recognition.MORAN.model import MORAN
-from recognition.MORAN.utils import dataset, tools
+from MORAN import dataset, tools
+from MORAN.model import MORAN
 
-DATASET = (Path(__file__).parent / 'models').resolve()
+MODEL_PATH = (Path(__file__).parent / 'models').resolve()
+
 
 class MORANRecognizer:
-    model_path = str(DATASET / 'moran_v2.pth')
+    model_path = str(MODEL_PATH / 'moran_v2.pth')
     alphabet = '0:1:2:3:4:5:6:7:8:9:a:b:c:d:e:f:g:h:i:j:k:l:m:n:o:p:q:r:s:t:u:v:w:x:y:z:$'
     max_iter = 20
     cuda = False
@@ -25,10 +25,23 @@ class MORANRecognizer:
     def load(self):
         if torch.cuda.is_available():
             self.cuda = True
-            self.moran = MORAN(1, len(self.alphabet.split(':')), 256, 32, 100, bidirectional=True, CUDA=True)
+            self.moran = MORAN(1,
+                               len(self.alphabet.split(':')),
+                               256,
+                               32,
+                               100,
+                               bidirectional=True,
+                               CUDA=True)
             self.moran = self.moran.cuda()
         else:
-            self.moran = MORAN(1, len(self.alphabet.split(':')), 256, 32, 100, bidirectional=True, inputDataType='torch.FloatTensor', CUDA=False)
+            self.moran = MORAN(1,
+                               len(self.alphabet.split(':')),
+                               256,
+                               32,
+                               100,
+                               bidirectional=True,
+                               inputDataType='torch.FloatTensor',
+                               CUDA=False)
 
         print(f'loading pretrained model from {self.model_path}')
         if self.cuda:
@@ -47,7 +60,7 @@ class MORANRecognizer:
         self.moran.eval()
 
         self.converter = tools.StringLabelConverter(self.alphabet, ':')
-        self.transformer = dataset.resizeNormalize((100, 32))
+        self.transformer = MODEL_PATH.resizeNormalize((100, 32))
 
     def process(self, cv_img):
         image = Image.fromarray(cv_img).convert('L')

@@ -1,18 +1,9 @@
 import torch
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-def validation(model, criterion, eval_loader, converter, config):
-    num_correct = 0
-    norm_ED = 0
-    len_data = 0
-    infer_time = 0
-    valid_loss_avg = Averager()
 
-    for i, (image_tensor, labels) in enumerate(eval_loader):
-        batch_size = image_tensor.size(0)
-        len_data += batch_size
-        image = image_tensor.to(device)
-
+# https://github.com/meijieru/crnn.pytorch/blob/master/utils.py
 class CTCLabelConverter(object):
     #  Convert between text-label and text-index
 
@@ -25,7 +16,9 @@ class CTCLabelConverter(object):
             # NOTE: 0 is reserved for 'blank' token required by CTCLoss
             self.dict[char] = i + 1
 
-        self.character = ['[blank]'] + dict_character  # dummy '[blank]' token for CTCLoss (index 0)
+        self.character = [
+            '[blank]'
+        ] + dict_character  # dummy '[blank]' token for CTCLoss (index 0)
 
     def encode(self, text, batch_max_len=25):
         # convert text-label into text-index.
@@ -44,7 +37,8 @@ class CTCLabelConverter(object):
 
             char_list = []
             for i in range(l):
-                if t[i] != 0 and (not (i > 0 and t[i - 1] == t[i])):  # removing repeated characters and blank.
+                if t[i] != 0 and (not (i > 0 and t[i - 1] == t[i])
+                                  ):  # removing repeated characters and blank.
                     char_list.append(self.character[t[i]])
             text = ''.join(char_list)
 
@@ -80,8 +74,9 @@ class AttnLabelConverter(object):
             text = list(t)
             text.append('[s]')
             text = [self.dict[char] for char in text]
-            batch_text[i][1:1 + len(text)] = torch.LongTensor(text)  # batch_text[:, 0] = [GO] token
-        return (batch_text.to(device), torch.IntTensor(length).to(device))
+            batch_text[i][1:1 + len(text)] = torch.LongTensor(
+                text)  # batch_text[:, 0] = [GO] token
+            return (batch_text.to(device), torch.IntTensor(length).to(device))
 
     def decode(self, text_index, length):
         # convert text-index into text-label.
@@ -99,7 +94,7 @@ class Averager(object):
         self.reset()
 
     def add(self, v):
-        count = v.daa.numel()
+        count = v.data.numel()
         v = v.data.sum()
         self.n_count += count
         self.sum += v

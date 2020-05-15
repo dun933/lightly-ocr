@@ -134,7 +134,8 @@ _.*
 .DS_STORE
 *.ipynb
 *.json
-*.pth
+data/
+models/
 *.html
 logs/
 __init__.py
