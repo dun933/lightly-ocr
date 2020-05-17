@@ -9,13 +9,14 @@ from modules.transform import TPS_STN
 class CRNN(nn.Module):
     # TPS - ResNet - biLSTM - Attn/CTC
     def __init__(self, config):
+        super(CRNN, self).__init__()
         self.config = config
         if config['transform'] == 'TPS':
             self.transform = TPS_STN(F=config['num_fiducial'],
-                                     I_size=(config['height'],
-                                             config['width']),
-                                     I_r_size=(config['height'],
-                                               config['width']),
+                                     im_size=(config['height'],
+                                              config['width']),
+                                     im_rectified=(config['height'],
+                                                   config['width']),
                                      num_channels=config['input_channel'])
         else:
             print('not using TPS')
@@ -45,7 +46,8 @@ class CRNN(nn.Module):
                                         config['num_classes'])
         else:
             raise Exception(
-                'prediction needs to be either CTC or attention based')
+                'prediction needs to be either CTC or attention-based sequence prediction'
+            )
 
     def forward(self, inputs, text, training=True):
         if not self.config['transform'] == 'None':

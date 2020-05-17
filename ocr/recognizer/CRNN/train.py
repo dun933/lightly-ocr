@@ -29,14 +29,14 @@ torch.cuda.manual_seed(CONFIG['seeds'])
 cudnn.benchmark = True
 cudnn.deterministic = True
 
-train_dataset = LMDBDataset(CONFIG['train_root'])
+train_dataset = LMDBDataset(CONFIG['train_root'], CONFIG)
 if not CONFIG['random_sample']:
     sampler = random_sequential_sampler(train_dataset, CONFIG['batch_size'])
 else:
     sampler = None
 collate_fn = align_collate(height=CONFIG['height'],
                            width=CONFIG['width'],
-                           keep_ratio_with_pad=CONFIG['keep_ratio'])
+                           keep_ratio=CONFIG['keep_ratio'])
 train_loader = DataLoader(train_dataset,
                           batch_size=CONFIG['batch_size'],
                           shuffle=True,
@@ -72,6 +72,7 @@ for name, params in model.named_parameters():
         if 'weight' in name:
             params.data.fill_(1)
         continue
+
 # if you have multiple gpu go ahead I only have 1060 =(
 if torch.cuda.device_count() > 1:
     model = torch.nn.DataParallel(model).to(device)

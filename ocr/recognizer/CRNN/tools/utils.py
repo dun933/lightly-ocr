@@ -108,3 +108,7 @@ class Averager(object):
         if self.n_count != 0:
             res = self.sum / float(self.n_count)
         return res
+
+
+# implements levenshtein edit-distance
+# lev a,b(|a|,|b|) == max(|a|,|b|) if min(|a|,|b|)== 0 else min([lev a,b(|a|-1,|b|)+1], [lev a,b(|a|,|b|-1)+1], [lev a,b(|a|-1, |b|-1)+1])

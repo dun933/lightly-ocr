@@ -14,19 +14,6 @@ from torch.utils.data import Dataset
 from torch.utils.data.sampler import Sampler
 
 
-def tensor2im(image_tensor, imtype=np.uint8):
-    im_np = image_tensor.cpu().float().numpy()
-    if im_np.shape[0] == 1:
-        im_np = np.tile(im_np, (3, 1, 1))
-    im_np = (np.transpose(im_np, (1, 2, 0)) + 1) / 2. * 255.
-    return im_np.astype(imtype)
-
-
-def save_image(image_numpy, impath):
-    image_pil = Image.fromarray(image_numpy)
-    image_pil.save(impath)
-
-
 # taken from python docs
 def _accumulate(iterable, fn=lambda x, y: x + y):
     # _accumulate([1,2,3,4,5]) -> 1 3 6 10 15
@@ -76,16 +63,16 @@ class normalize_pad(object):
 
 
 class align_collate(object):
-    def __init__(self, height=32, width=100, keep_ratio_with_pad=False):
+    def __init__(self, height=32, width=100, keep_ratio=False):
         self.height = height
         self.width = width
-        self.keep_ratio_with_pad = keep_ratio_with_pad
+        self.keep_ratio = keep_ratio
 
     def __call__(self, batch):
         batch = filter(lambda x: x is not None, batch)
         images, labels = zip(*batch)
 
-        if self.keep_ratio_with_pad:
+        if self.keep_ratio:
             resized_max_w = self.width
             input_channel = 3 if images[0].mode == 'RGB' else 1
             transform = normalize_pad(
@@ -115,8 +102,9 @@ class align_collate(object):
 
 
 class LMDBDataset(Dataset):
-    def __init__(self, root, transform=None, target_transform=None):
+    def __init__(self, root, config, transform=None, target_transform=None):
         self.root = root
+        self.config = config
         self.transform = transform
         self.target_transform = target_transform
         self.env = lmdb.open(root,
