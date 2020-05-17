@@ -1,3 +1,5 @@
+from itertools import product
+
 import torch
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -112,3 +114,23 @@ class Averager(object):
 
 # implements levenshtein edit-distance
 # lev a,b(|a|,|b|) == max(|a|,|b|) if min(|a|,|b|)== 0 else min([lev a,b(|a|-1,|b|)+1], [lev a,b(|a|,|b|-1)+1], [lev a,b(|a|-1, |b|-1)+1])
+# iter through lev to check whether insertion/substitution/deletion
+def step(lev, i, j, s1, s2, subs=1):
+    c1, c2 = s1[i - 1], s2[j - 1]
+    # skips the first two character in s1, s2
+    a1 = lev[i - 1][j] + 1
+    a2 = lev[i][j - 1] + 1
+    r = lev[i - 1][j - 1] + (subs if c1 != c2 else 0)
+    lev[i][j] = min(a1, a2, r)
+
+
+def edit_distance(s1, s2, subs=1):
+    l1, l2 = len(s1) + 1, len(s2) + 1
+    lev = [[0] * l2 for _ in range(l1)]
+    for i in range(l1):
+        lev[i][0] = i
+    for j in range(l2):
+        lev[0][j] = j
+    for i, j in product(range(l1 - 1), range(l2 - 1)):
+        step(lev, i + 1, j + 1, s1, s2, subs=subs)
+    return lev[l1 - 1][l2 - 1]

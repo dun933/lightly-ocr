@@ -7,15 +7,19 @@ import time
 import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
+import torch.nn.functional as F
 import torch.nn.init as init
 import torch.optim as optim
 import yaml
 from torch.utils.data import DataLoader
 
 from model import CRNN
-from tools.dataset import LMDBDataset, align_collate, random_sequential_sampler
-from tools.utils import AttnLabelConverter, Averager, CTCLabelConverter
+from tools.dataset import (LMDBDataset, align_collate,
+                           random_sequential_sampler, resize_normalize)
+from tools.utils import (AttnLabelConverter, Averager, CTCLabelConverter,
+                         edit_distance)
 
+# load device for either `cuda` or `cpu`
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 with open(
         os.path.join(os.path.dirname(os.path.realpath(__file__)),
@@ -29,6 +33,9 @@ torch.cuda.manual_seed(CONFIG['seeds'])
 cudnn.benchmark = True
 cudnn.deterministic = True
 
+# init logs file for easier debugging
+dataset_log = open(os.path.join(CONFIG['']))
+# init dataset/loader
 train_dataset = LMDBDataset(CONFIG['train_root'], CONFIG)
 if not CONFIG['random_sample']:
     sampler = random_sequential_sampler(train_dataset, CONFIG['batch_size'])
@@ -44,6 +51,10 @@ train_loader = DataLoader(train_dataset,
                           num_workers=int(CONFIG['workers']),
                           collate_fn=collate_fn,
                           pin_memory=True)
+val_dataset = LMDBDataset(root=CONFIG['val_root'],
+                          transform=resize_normalize((100, 32)))
+
+# setup fine tune
 CONFIG['num_classes'] = len(CONFIG['character']) + 1
 if CONFIG['prediction'] == 'CTC':
     converter = CTCLabelConverter(CONFIG['character'])
@@ -53,11 +64,20 @@ CONFIG['num_classes'] = len(converter.character)
 
 if CONFIG['rgb']:
     CONFIG['input_channel'] = 3
+# init model here
 model = CRNN(CONFIG)
 print(
     f'model input params:\nheight:{CONFIG["height"]}\nwidth:{CONFIG["width"]}\nfidicial points:{CONFIG["num_fiducial"]}\ninput channel:{CONFIG["input_channel"]}\noutput channel:{CONFIG["output_channel"]}\nhidden size:{CONFIG["hidden_size"]}\nnum class:{CONFIG["num_classes"]}\nbatch_max_len:{CONFIG["batch_max_len"]}\nmodel structures as follow:{CONFIG["transform"]}-{CONFIG["backbone"]}-{CONFIG["sequence"]}-{CONFIG["prediction"]}'
 )
 
+# setup some global Variable, torch.autograd.Variable is deprecated
+IMAGE = torch.FloatTensor((CONFIG['batch_size'], 3 if CONFIG['rgb'] else 1,
+                           CONFIG['height'], CONFIG['height']),
+                          requires_grad=True).to(device)
+TEXT = torch.IntTensor(CONFIG['batch_size'] * 5).to(device)
+LENGTH = torch.IntTensor(CONFIG['batch_size']).to(device)
+
+# init weights, skips for loc_fc2
 for name, params in model.named_parameters():
     if 'loc_fc2' in name:
         print(f'skips {name} since fc2 is already initialized')
@@ -113,8 +133,115 @@ else:
 print(f'optimizer: {optimizer}')
 
 
-def eval(net, dataset, loss_fn, max_iter=CONFIG['val_interval']):
-    print('start val')
+def evaluation(net, val_dataset, loss_fn, config=CONFIG):
+    # evaluation_fn
+    """
+    args:
+        - net: CRNN model
+        - val_dataset: dataset used for validation
+        - loss_fn: loss function, either torch.nn.CTCLoss or torch.nn.CrossEntropyLoss
+        - config: list parsed from config.yml
+    returns:
+        - val_loss: loss from validation
+        - accuracy: accuracy of the prediction
+        - preds_: prediction list
+        - confidence_: confidence score list
+    """
+    print('\nstart validation...\n')
+    # some variable here
+    num_correct = 0
+    # FIXME: added evaluation case for ICDAR2019-STROIE normalized edit_distance
+    # norm_ed = 0
+    len_data = 0
+    infer_ = 0  # track infer time
+    avg_loss = Averager()
+
+    # disable gradient when validating
+    for p in net.parameters():
+        p.requires_grad = False
+    # evaluation mode intensifies =))
+    net.eval()
+    val_loader = DataLoader(val_dataset,
+                            shuffle=True,
+                            batch_size=CONFIG['batch_size'],
+                            num_workers=int(CONFIG['workers']))
+    val_iter = iter(val_loader)
+    max_iter = min(config['max_iter'], len(val_loader))
+
+    for i, (img_tensor, label) in enumerate(val_loader):
+        batch_size = img_tensor.size(0)
+        len_data += batch_size
+        img = img_tensor.to(device)
+        # max length prediction
+        preds_size = torch.IntTensor([config['batch_max_len'] * batch_size
+                                      ]).to(device)  # length of prediction
+        preds_text = torch.LongTensor(batch_size, config['batch_max_len'] +
+                                      1).fill_(0).to(device)
+
+        loss_text, len_loss = converter.encode(
+            label, batch_max_len=config['batch_max_len'])
+
+        start_ = time.time()
+        if config['prediction'] == 'CTC':
+            preds = net(img, preds_text)
+            forward_ = time.time() - start_
+            print(
+                f'time took to predict with {config["prediction"]}: {forward_:5.2f}'
+            )
+            # we need evaluation loss when using CTC
+            ctc_preds = torch.IntTensor([preds.size(1)] *
+                                        batch_size)  # ctc preds_size
+            # then permute preds to ctc format : label,input_len, label_len
+            cost = loss_fn(
+                preds.log_softmax(2).permute(1, 0, 2), loss_text, ctc_preds,
+                len_loss)
+
+            # greedy decoding the convert idx to character
+            _, preds_idx = preds.max(2)
+            preds_idx = preds_idx.view(-1)
+            preds_ = converter.decode(preds_idx.data, ctc_preds.data)
+
+        else:
+            # for attention decoder
+            preds = net(img, preds_text, trainning=False)
+            forward_ = time.time() - start_
+            print(
+                f'time took to predict with {config["prediction"]}: {forward_:5.2f}'
+            )
+            preds = preds[:, :loss_text.shape[1] - 1, :]
+            target = loss_text[:, 1:]  # prune [GO] symbol
+            # FIXME: fixes MemoryError when training at cost -> DONE
+            cost = loss_fn(
+                preds.contiguous().view(-1, preds.shape[-1]),
+                target.contiguous().view(-1)
+            )  # tensor.contiguous() allows to use previous loaded tensor in memmory (if available then return the previous tensor)
+            _, preds_idx = preds.max(2)
+            preds_ = converter.decode(preds_idx, preds_size)
+            label = converter.decode(loss_text[:, 1:], len_loss)
+
+        infer_ += forward_
+        avg_loss.add(cost)
+
+        # returns accuracy and confidence score
+        probs = F.softmax(preds, dim=2)
+        max_probs, _ = probs.max(dim=2)
+        confidence_ = []
+        for gt, pred, max_prob in zip(label, preds_, max_probs):
+            if config['prediction'] == 'Attention':
+                gt = gt[:gt.find('[s]')]  # prune EOS token
+                pred_EOS = pred.find('[s]')
+                pred = pred[:pred_EOS]
+                max_prob = max_prob[:pred_EOS]
+            if pred == gt:
+                num_correct += 1
+            try:
+                score = max_prob.cumprod(dim=0)[-1]
+            except:
+                socre = 0  # empty pred case when already removed EOS token
+            confidence_.append(score)
+    accuracy = num_correct / float(len_data) * 100
+    return avg_loss.val(
+    ), accuracy, preds_, confidence_, label, infer_, len_data
 
 
 def train(CONFIG):

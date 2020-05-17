@@ -14,6 +14,10 @@ from torch.utils.data import Dataset
 from torch.utils.data.sampler import Sampler
 
 
+def load_data(v, data):
+    v.data.resize_(data.size()).copy_(data)
+
+
 # taken from python docs
 def _accumulate(iterable, fn=lambda x, y: x + y):
     # _accumulate([1,2,3,4,5]) -> 1 3 6 10 15

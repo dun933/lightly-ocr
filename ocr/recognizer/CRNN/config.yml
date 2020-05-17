@@ -11,9 +11,8 @@ workers: 2
 num_gpu: 1
 batch_size: 64
 num_iters: 30000
-val_interval: 100
+val_interval: 500
 save_interval: 500
-display_interval: 500
 lr: 0.01
 adam: False
 beta1: 0.9 # use adadelta by default

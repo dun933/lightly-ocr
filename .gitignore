@@ -132,10 +132,10 @@ _.*
 ._.*
 ._*
 .DS_STORE
-*.ipynb
+*.pth
+*.onnx
 *.json
 data/
-models/
 *.html
 logs/
 __init__.py
