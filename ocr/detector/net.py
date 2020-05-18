@@ -1,3 +1,4 @@
+import os
 from collections import OrderedDict
 from functools import cmp_to_key
 
@@ -11,7 +12,8 @@ from .CRAFT import imgproc
 from .CRAFT.craft_utils import adjustResultCoordinates, getDetBoxes
 from .CRAFT.model import VGG_UNet
 
-MODEL_PATH = '~/Documents/cs/lightly-ocr/ocr/models/pretrained'
+MODEL_PATH = os.path.join(os.path.dirname(os.path.relpath(__file__)), 'models',
+                          'craft_mlt_25k.pth')
 
 
 def copyStateDict(state_dict):
@@ -36,7 +38,7 @@ class CRAFTDetector:
     low_text_score = 0.4
     enable_polygon = False
     enable_refiner = False
-    trained_model = str(MODEL_PATH + '/craft.pth')
+    trained_model = MODEL_PATH
 
     def load(self):
         self.net = VGG_UNet()
@@ -45,7 +47,7 @@ class CRAFTDetector:
             self.net.load_state_dict(
                 copyStateDict(torch.load(self.trained_model)))
         else:
-            # added compatibility for running on Mac
+            # added compatibility for running on Mac``
             self.net.load_state_dict(
                 copyStateDict(
                     torch.load(self.trained_model, map_location='cpu')))

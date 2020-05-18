@@ -23,10 +23,11 @@ _NOTES_: codebase for _CRAFT_ and _MORAN_ are ported from to original repository
 <a href="ocr/recognizer"><b>text-recognition</b></a>
 </summary><br>
 - <b>CRNN</b> 
+  * [ ] transfer pretrained weight to fit with the model
   * [ ] fix image padding issues with [eval.py](ocr/recognizer/CRNN/tools/eval.py)
   * [ ] process ICDAR2019 for eval sets in conjunction with MJSynth val data ⇒ reduce biases
   * [ ] creates a general dataset and generator function for both reconition model
-  * [ ] database parsing for training loop
+  * ~~[x] database parsing for training loop~~
   * [x] ~~__FIXME__: gradient vanishing when training~~
   * [x] ~~generates logs for each training session~~
   * [x] ~~add options for continue training~~
@@ -43,48 +44,46 @@ _NOTES_: codebase for _CRAFT_ and _MORAN_ are ported from to original repository
 overview in `src` as follows:
 ```bash
 ./
-├── convert.py
-├── pipeline.py
-├── README.md
-├── img
-├── models
-│   ├── logs
-│   └── pretrained
 ├── detector
+│   ├── net.py
 │   ├── CRAFT
 │   │   ├── craft_utils.py
 │   │   ├── imgproc.py
 │   │   ├── model.py
 │   │   └── vgg_bn.py
-│   ├── net.py
+│   ├── models
 │   └── YOLO
-└── recognizer
-    ├── CRNN
-    │   ├── config.yml
-    │   ├── data
-    │   ├── model.py
-    │   ├── modules
-    │   │   ├── backbone.py
-    │   │   ├── sequence.py
-    │   │   └── transform.py
-    │   ├── README.md
-    │   ├── test.py
-    │   ├── tools
-    │   │   ├── dataset.py
-    │   │   ├── generator.py
-    │   │   └── utils.py
-    │   ├── train.py
-    │   └── zoo.ipynb
-    ├── MORAN
-    │   ├── dataset.py
-    │   ├── model.py
-    │   ├── modules
-    │   │   ├── asrn_resnet.py
-    │   │   ├── fractional_pickup.py
-    │   │   └── morn.py
-    │   ├── test.py
-    │   └── utils.py
-    └── net.py
+├── recognizer
+│   ├── CRNN
+│   │   ├── data
+│   │   ├── modules
+│   │   │   ├── backbone.py
+│   │   │   ├── sequence.py
+│   │   │   └── transform.py
+│   │   ├── tools
+│   │   │   ├── dataset.py
+│   │   │   ├── generator.py
+│   │   │   └── utils.py
+│   │   ├── config.yml
+│   │   ├── README.md
+│   │   ├── model.py
+│   │   ├── test.py
+│   │   └── train.py
+│   ├── models
+│   ├── MORAN
+│   │   ├── dataset.py
+│   │   ├── model.py
+│   │   ├── modules
+│   │   │   ├── asrn_resnet.py
+│   │   │   ├── fractional_pickup.py
+│   │   │   └── morn.py
+│   │   ├── test.py
+│   │   └── utils.py
+│   └── net.py
+├── README.md
+├── convert.py
+├── pipeline.py
+└── zoo.ipynb
 ```
 
 ## instruction.

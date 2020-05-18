@@ -1,6 +1,5 @@
 import os
 from collections import OrderedDict
-from pathlib import Path
 
 import cv2
 import torch
@@ -16,12 +15,12 @@ from .MORAN.model import MORAN
 
 # from torch.autograd import Variable
 
-MODEL_PATH = (Path(__file__).parent / 'models' / 'pretrained').resolve()
+MODEL_PATH = os.path.join(os.path.dirname(os.path.relpath(__file__)), 'models')
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 class MORANRecognizer:
-    model_path = str(MODEL_PATH / 'MORANv2.pth')
+    model_path = os.path.join(MODEL_PATH, 'MORANv2.pth')
     alphabet = '0:1:2:3:4:5:6:7:8:9:a:b:c:d:e:f:g:h:i:j:k:l:m:n:o:p:q:r:s:t:u:v:w:x:y:z:$'
     max_iter = 20
     cuda = False
@@ -50,8 +49,6 @@ class MORANRecognizer:
                                bidirectional=True,
                                inputDataType='torch.FloatTensor',
                                CUDA=False)
-
-        print(f'loading pretrained model from {self.model_path}')
         if self.cuda:
             self.state_dict = torch.load(self.model_path)
         else:
@@ -104,7 +101,7 @@ class MORANRecognizer:
 
 class CRNNRecognizer:
     alphabet = '0123456789abcdefghijklmnopqrstuvwxyz'
-    model_path = str(MODEL_PATH / 'CRNN.pth')
+    model_path = os.path.join(MODEL_PATH, 'CRNN.pth')
     with open(
             os.path.join(os.path.dirname(os.path.realpath(__file__)), 'CRNN',
                          'config.yml'), 'r') as f:
