@@ -22,6 +22,7 @@ _NOTES_: codebase for _CRAFT_ and _MORAN_ are ported from to original repository
 <summary>
 <a href="ocr/recognizer"><b>text-recognition</b></a>
 </summary><br>
+
 - <b>CRNN</b> 
   * [ ] transfer pretrained weight to fit with the model
   * [ ] fix image padding issues with [eval.py](ocr/recognizer/CRNN/tools/eval.py)
@@ -35,6 +36,7 @@ _NOTES_: codebase for _CRAFT_ and _MORAN_ are ported from to original repository
   * [x] ~~create lmdb as dataset~~
   * [x] ~~added [generator.py](ocr/recognizer/CRNN/tools/generator.py) to generate lmdb~~
   * [x] ~~merges valuation_fn into [train.py](ocr/recognizer/CRNN/train.py#L136)~~
+
 - <b>MORAN</b>
   * [ ] updates Variable to Tensor since torch.autograd.Variable is deprecated
 </details>
