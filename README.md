@@ -42,52 +42,48 @@ _NOTES_: codebase for _CRAFT_ and _MORAN_ are ported from to original repository
 ## structure.
 overview in `src` as follows:
 ```bash
-`./
+./
 ├── convert.py
 ├── pipeline.py
+├── README.md
+├── img
 ├── models
 │   ├── logs
 │   └── pretrained
-│       ├── aster.pth
-│       ├── craft_mlt_25k.pth
-│       ├── craft.onnx
-│       ├── moran_v2.pth
-│       └── TPS-ResNet-BiLSTM-Attn.pth
 ├── detector
-│   ├── YOLO
 │   ├── CRAFT
 │   │   ├── craft_utils.py
 │   │   ├── imgproc.py
 │   │   ├── model.py
 │   │   └── vgg_bn.py
-│   └── net.py
+│   ├── net.py
+│   └── YOLO
 └── recognizer
     ├── CRNN
     │   ├── config.yml
     │   ├── data
-    │   │   ├── logs
-    │   │   ├── test
-    │   │   ├── train
-    │   │   └── val
+    │   ├── model.py
     │   ├── modules
     │   │   ├── backbone.py
     │   │   ├── sequence.py
     │   │   └── transform.py
+    │   ├── README.md
+    │   ├── test.py
     │   ├── tools
     │   │   ├── dataset.py
     │   │   ├── generator.py
     │   │   └── utils.py
-    │   ├── README.md
-    │   ├── model.py
-    │   ├── test.py
     │   ├── train.py
     │   └── zoo.ipynb
     ├── MORAN
-    │   ├── asrn_resnet.py
-    │   ├── fractional_pickup.py
+    │   ├── dataset.py
     │   ├── model.py
-    │   ├── morn.py
-    │   └── test.py
+    │   ├── modules
+    │   │   ├── asrn_resnet.py
+    │   │   ├── fractional_pickup.py
+    │   │   └── morn.py
+    │   ├── test.py
+    │   └── utils.py
     └── net.py
 ```
 
