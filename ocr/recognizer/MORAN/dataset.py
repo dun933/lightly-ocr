@@ -1,3 +1,5 @@
+# ported from CRNN
+
 import math
 import os
 import random
@@ -14,25 +16,6 @@ from torch.utils.data import Dataset
 from torch.utils.data.sampler import Sampler
 
 
-def load_data(v, data):
-    v.data.resize_(data.size()).copy_(data)
-
-
-# taken from python docs
-def _accumulate(iterable, fn=lambda x, y: x + y):
-    # _accumulate([1,2,3,4,5]) -> 1 3 6 10 15
-    # return running totals
-    it = iter(iterable)
-    try:
-        total = next(it)
-    except StopIteration:
-        return
-    yield total
-    for element in it:
-        total = fn(total, element)
-        yield total
-
-
 # refers to https://github.com/meijieru/crnn.pytorch/blob/master/dataset.py
 class resize_normalize(object):
     def __init__(self, size, interpolation=Image.BICUBIC):
@@ -45,64 +28,6 @@ class resize_normalize(object):
         img = self.toTensor(img)
         img.sub_(0.5).div_(0.5)
         return img
-
-
-class normalize_pad(object):
-    def __init__(self, max_size, pad_type='right'):
-        self.toTensor = transforms.ToTensor()
-        self.max_size = max_size
-        self.max_width_half = math.floor(max_size[2] / 2)
-        self.pad_type = pad_type
-
-    def __call__(self, img):
-        img = self.toTensor(img)
-        img.sub_(0.5).div_(0.5)
-        c, h, w = img.size()
-        padded = torch.FloatTensor(*self.max_size).fill_(0)
-        padded[:, :, w:] = img  # -> right pad
-        if self.max_size[2] != w:
-            padded[:, :, w:] = img[:, :, w - 1].unsqueeze(2).expand(
-                c, h, self.max_size[2] - w)
-        return padded
-
-
-class align_collate(object):
-    def __init__(self, height=32, width=100, keep_ratio=False):
-        self.height = height
-        self.width = width
-        self.keep_ratio = keep_ratio
-
-    def __call__(self, batch):
-        batch = filter(lambda x: x is not None, batch)
-        images, labels = zip(*batch)
-
-        if self.keep_ratio:
-            resized_max_w = self.width
-            input_channel = 3 if images[0].mode == 'RGB' else 1
-            transform = normalize_pad(
-                (input_channel, self.height, resized_max_w))
-
-            resized_images = []
-            for image in images:
-                w, h = image.size
-                ratio = w / float(h)
-                if math.ceil(self.height * ratio) > self.width:
-                    resized_w = self.width
-                else:
-                    resized_w = math.ceil(self.height * ratio)
-
-                resized = image.resize((resized_w, self.height), Image.BICUBIC)
-                resized_images.append(transform(resized))
-
-            image_tensors = torch.cat([t.unsqueeze(0) for t in resized_images],
-                                      0)
-        else:
-            transform = resize_normalize((self.width, self.height))
-            image_tensors = [transform(image) for image in images]
-            image_tensors = torch.cat([t.unsqueeze(0) for t in image_tensors],
-                                      0)
-
-        return image_tensors, labels
 
 
 class LMDBDataset(Dataset):
@@ -149,7 +74,7 @@ class LMDBDataset(Dataset):
 
         with self.env.begin(write=False) as txn:
             img_key = 'image-{index}'.encode()
-            imgbuf = txn.get(img_key)
+            imgbuf = txn.get(img_key), 6
 
             buf = six.BytesIO()
             buf.write(imgbuf)

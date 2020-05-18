@@ -1,9 +1,9 @@
 import torch
 import torch.nn as nn
 
-from modules.backbone import ResNet
-from modules.sequence import Attention, biLSTM
-from modules.transform import TPS_STN
+from .modules.backbone import ResNet
+from .modules.sequence import Attention, biLSTM
+from .modules.transform import TPS_STN
 
 
 class CRNN(nn.Module):

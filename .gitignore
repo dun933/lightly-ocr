@@ -131,6 +131,7 @@ dmypy.json
 _.*
 ._.*
 ._*
+img/
 .DS_STORE
 *.pth
 *.onnx

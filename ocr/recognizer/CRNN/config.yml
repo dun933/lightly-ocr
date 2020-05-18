@@ -1,6 +1,6 @@
 # training
 pretrained: ""
-log_dir: "/models/logs"
+log_dir: "models/logs"
 model_dir: "models"
 train_root: "data/train"
 val_root: "data/val"
@@ -11,8 +11,8 @@ workers: 2
 num_gpu: 1
 batch_size: 64
 num_iters: 30000
-val_interval: 500
-save_interval: 500
+val_interval: 1000
+save_interval: 1000
 lr: 0.01
 adam: False
 beta1: 0.9 # use adadelta by default

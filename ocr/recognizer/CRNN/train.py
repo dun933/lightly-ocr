@@ -14,7 +14,7 @@ import yaml
 from torch.utils.data import DataLoader
 
 from model import CRNN
-from tools.dataset import (LMDBDataset, align_collate,
+from tools.dataset import (LMDBDataset, align_collate, load_data,
                            random_sequential_sampler, resize_normalize)
 from tools.utils import (AttnLabelConverter, Averager, CTCLabelConverter,
                          edit_distance)
@@ -25,7 +25,18 @@ with open(
         os.path.join(os.path.dirname(os.path.realpath(__file__)),
                      'config.yml'), 'r') as f:
     CONFIG = yaml.safe_load(f)
+# setup some global Variable, torch.autograd.Variable is deprecated
+if CONFIG['rgb']:
+    CONFIG['input_channel'] = 3
+else:
+    CONFIG['input_channel'] = 1
+IMAGE = torch.FloatTensor((CONFIG['batch_size'], CONFIG['input_channel'],
+                           CONFIG['height'], CONFIG['height'])).to(device)
+TEXT = torch.IntTensor(CONFIG['batch_size'] * 5).to(device)
+LENGTH = torch.IntTensor(CONFIG['batch_size']).to(device)
 DASHED = '-' * 80
+
+# randomize seeds
 random.seed(CONFIG['seeds'])
 np.random.seed(CONFIG['seeds'])
 torch.manual_seed(CONFIG['seeds'])
@@ -34,9 +45,19 @@ cudnn.benchmark = True
 cudnn.deterministic = True
 
 # init logs file for easier debugging
-dataset_log = open(os.path.join(CONFIG['']))
-# init dataset/loader
-train_dataset = LMDBDataset(CONFIG['train_root'], CONFIG)
+with open(os.path.join(CONFIG['log_dir'], 'log_dataset.txt'),
+          'a') as dataset_log:
+    dataset_log.write(DASHED + '\n')
+    print(DASHED)
+    # init dataset/loader
+    train_dataset = LMDBDataset(CONFIG)
+    print(
+        f'dataset_root:{CONFIG["train_root"]}\nbatch_size:{CONFIG["batch_size"]}\n'
+    )
+    dataset_log.write(
+        f'dataset_root:{CONFIG["train_root"]}\nbatch_size:{CONFIG["batch_size"]}\n'
+    )
+    dataset_log.close()
 if not CONFIG['random_sample']:
     sampler = random_sequential_sampler(train_dataset, CONFIG['batch_size'])
 else:
@@ -55,27 +76,21 @@ val_dataset = LMDBDataset(root=CONFIG['val_root'],
                           transform=resize_normalize((100, 32)))
 
 # setup fine tune
-CONFIG['num_classes'] = len(CONFIG['character']) + 1
-if CONFIG['prediction'] == 'CTC':
-    converter = CTCLabelConverter(CONFIG['character'])
-else:
-    converter = AttnLabelConverter(CONFIG['character'])
-CONFIG['num_classes'] = len(converter.character)
+with open(os.path.join(CONFIG['log_dir'], 'log_model.txt'), 'a') as f:
+    CONFIG['num_classes'] = len(CONFIG['character']) + 1
+    if CONFIG['prediction'] == 'CTC':
+        converter = CTCLabelConverter(CONFIG['character'])
+    else:
+        converter = AttnLabelConverter(CONFIG['character'])
+    CONFIG['num_classes'] = len(converter.character)
+    f.close()
 
-if CONFIG['rgb']:
-    CONFIG['input_channel'] = 3
-# init model here
-model = CRNN(CONFIG)
-print(
-    f'model input params:\nheight:{CONFIG["height"]}\nwidth:{CONFIG["width"]}\nfidicial points:{CONFIG["num_fiducial"]}\ninput channel:{CONFIG["input_channel"]}\noutput channel:{CONFIG["output_channel"]}\nhidden size:{CONFIG["hidden_size"]}\nnum class:{CONFIG["num_classes"]}\nbatch_max_len:{CONFIG["batch_max_len"]}\nmodel structures as follow:{CONFIG["transform"]}-{CONFIG["backbone"]}-{CONFIG["sequence"]}-{CONFIG["prediction"]}'
-)
-
-# setup some global Variable, torch.autograd.Variable is deprecated
-IMAGE = torch.FloatTensor((CONFIG['batch_size'], 3 if CONFIG['rgb'] else 1,
-                           CONFIG['height'], CONFIG['height']),
-                          requires_grad=True).to(device)
-TEXT = torch.IntTensor(CONFIG['batch_size'] * 5).to(device)
-LENGTH = torch.IntTensor(CONFIG['batch_size']).to(device)
+    # init model here
+    model = CRNN(CONFIG)
+    model_log = f'model input params:\nheight:{CONFIG["height"]}\nwidth:{CONFIG["width"]}\nfidicial points:{CONFIG["num_fiducial"]}\ninput channel:{CONFIG["input_channel"]}\noutput channel:{CONFIG["output_channel"]}\nhidden size:{CONFIG["hidden_size"]}\nnum class:{CONFIG["num_classes"]}\nbatch_max_len:{CONFIG["batch_max_len"]}\nmodel structures as follow:{CONFIG["transform"]}-{CONFIG["backbone"]}-{CONFIG["sequence"]}-{CONFIG["prediction"]}'
+    print(model_log)
+    f.write(model_log)
+    f.close()
 
 # init weights, skips for loc_fc2
 for name, params in model.named_parameters():
@@ -96,7 +111,8 @@ for name, params in model.named_parameters():
 # if you have multiple gpu go ahead I only have 1060 =(
 if torch.cuda.device_count() > 1:
     model = torch.nn.DataParallel(model).to(device)
-model.train()
+
+# check whether there is pretrained model for continue-training
 if CONFIG['saved_model_path'] != '':
     print(f'loading pretrained models from {CONFIG["saved_model_path"]}')
     if CONFIG['fine_tune']:
@@ -131,6 +147,15 @@ else:
                                rho=CONFIG['rho'],
                                eps=CONFIG['eps'])
 print(f'optimizer: {optimizer}')
+
+with open(os.path.join(CONFIG['log_dir'], 'log_config.txt'), 'a') as log:
+    options = '------------------Options------------------\n'
+    for k, v in CONFIG.items():
+        options += f'{str(k)}: {str(v)}\n'
+    options += '-------------------------------------------\n'
+    print(options)
+    log.write(options)
+    log.close()
 
 
 def evaluation(net, val_dataset, loss_fn, config=CONFIG):
@@ -240,112 +265,104 @@ def evaluation(net, val_dataset, loss_fn, config=CONFIG):
                 socre = 0  # empty pred case when already removed EOS token
             confidence_.append(score)
     accuracy = num_correct / float(len_data) * 100
-    return avg_loss.val(
-    ), accuracy, preds_, confidence_, label, infer_, len_data
+    valid_loss = avg_loss.val()
+    return valid_loss, accuracy, preds_, confidence_, label, infer_, len_data
 
 
-def train(CONFIG):
+def train_batch(net, train_loader, loss_fn, optimizer):
+    iters = iter(train_loader)
+    img, text = iters.next()
+    load_data(IMAGE, img)
+    IMAGE = IMAGE.to(device)
+    t, l = converter.encode(text, batch_max_len=CONFIG['batch_max_len'])
+    load_data(TEXT, t)
+    load_data(LENGTH, l)
+    batch_size = IMAGE.size(0)
 
-    # training starts here
-    start_iter = 0
-    if CONFIG['saved_model_path'] != '':
-        try:
-            start_iter = int(
-                CONFIG['saved_model_path'].split('_')[-1].split('.')[0])
-            print(f'continue to train, start_iter: {start_iter}')
-        except:
-            pass
+    if CONFIG['prediction'] == 'CTC':
+        preds = net(IMAGE, TEXT).log_softmax(2)
+        preds_size = torch.IntTensor([preds.size(1)] * batch_size)
+        perds = preds.permute(1, 0, 2)
 
-    start = time.time()
-    best_acc = -1
-    best_norm_ED = -1
-    i = start_iter
+        # disable cudnn for ctc_loss
+        torch.backends.cudnn.enabled = False
+        cost = loss_fn(preds, TEXT.to(device), preds_size.to(device),
+                       LENGTH.to(device))
+        torch.backends.cudnn.enabled = True
+    else:
+        preds = net(IMAGE, TEXT[:, :-1])  # align with attention.forward()
+        target = TEXT[:, 1:]  # prune [GO] symbol
+        cost = loss_fn(preds.view(-1, preds.shape[-1]),
+                       target.contiguous().view(-1))
 
-    while True:
-        image_tensors, labels = train_dataset.get_batch()
-        image = image_tensors.to(device)
-        text, length = converter.encode(labels,
-                                        batch_max_len=CONFIG['batch_max_len'])
-        batch_size = image.size(0)
+    net.zero_grad()
+    cost.backward()
+    torch.nn.utils.clip_grad_norm_(
+        net.parameters(), CONFIG['grad_clip'])  # gradient clipping with 5
+    optimizer.step()
+    return cost
 
-        if CONFIG['prediction'] == 'CTC':
-            preds = model(image, text).log_softmax(2)
-            preds_size = torch.IntTensor([preds.size(1)] * batch_size)
-            preds = preds.permute(1, 0, 2)
 
-            # disable cudnn for ctc_loss
-            torch.backends.cudnn.enabled = False
-            cost = loss_fn(preds, text.to(device), preds_size.to(device),
-                           length.to(device))
-            torch.backends.cudnn.enabled = True
+start_ = time.time()
+best_acc = -1
+# training loop start here
+for epoch in range(CONFIG['num_epochs']):
+    i = 0
+    while i < len(train_loader):
+        for p in model.parameters():
+            p.requires_grad = True
+        model.train()
 
-        else:
-            preds = model(image, text[:, :-1])  # align with Attention.forward
-            target = text[:, 1:]  # prune [GO] symbols
-            cost = loss_fn(preds.view(-1, preds.shape[-1]),
-                           target.contiguous().view(-1))
-
-        model.zero_grad()
-        cost.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), CONFIG['grad_clip'])
-        optimizer.step()
-
+        cost = train_batch(model, train_loader, loss_fn, optimizer)
         avg_loss.add(cost)
+        i += 1
 
-        # val
         if i % CONFIG['val_interval'] == 0:
-            elapsed = time.time() - start
+            elapsed_ = time.time() - start_
             with open(os.path.join(CONFIG['log_dir'], 'log_train.txt'),
                       'a') as log:
                 model.eval()
                 with torch.no_grad():
-                    valid_loss, cur_acc, cur_norm_ED, preds, confidence_, labels, infer_time, len_data = validation(
-                        model, loss_fn, loader, converter, CONFIG)
+                    valid_loss, accuracy, preds, confidence_, label, infer_, len_data = \
+                            evaluation(model, val_dataset, loss_fn)
                 model.train()
 
-                loss_log = f'[{i}/{CONFIG["num_iters"]}] train loss: {avg_loss.val():0.5f} | valid loss: {valid_loss} | elapsed: {elapsed:0.5f}'
+                # record some info into logs file
+                loss_log = f'[{i}/{CONFIG["num_iters"]}] train_loss: {avg_loss.val():0.5f} | val_loss: {valid_loss:0.5f} | elapsed time: {elapsed_:0.5f}'
                 avg_loss.reset()
 
-                model_log = f'{"current_accuracy":17s}:{cur_acc:0.3f} | {"current_norm_ED":17s}: {cur_norm_ED:0.2f}'
+                model_log = f'{"accuracy":20s}: {accuracy:0.3f}'
 
-                if cur_acc > best_acc:
-                    best_acc = cur_acc
+                if accuracy > best_acc:
+                    best_acc = accuracy
                     torch.save(
                         model.state_dict(),
-                        f'{os.path.join(CONFIG["saved_model_path"], "best_acc.pth")}'
-                    )
-                if cur_norm_ED > best_norm_ED:
-                    best_norm_ED = cur_norm_ED
-                    torch.save(
-                        model.state_dict(),
-                        f'{os.path.join(CONFIG["saved_model_path"], "best_norm_ED.pth")}'
-                    )
-                best_model_log = f'{"best_accuracy":17s}: {best_acc:0.3f} | {"best_norm_ED":17s}: {best_norm_ED:0.2f}'
+                        os.path.join(CONFIG['model_dir'], 'best_acc.pth'))
+                best_model_log = f'{"best accuracy":20s}: {best_acc:0.3f}'
 
-                loss_model_log = f'{loss_log}\n{model_log}\n{best_model_log}'
+                loss_model_log = f'{loss_log}\n{model_log}\n{best_model_log}\n'
                 print(loss_model_log)
-                log.write(loss_model_log + '\n')
+                log.write(loss_model_log)
 
-                # get prediction
-                head = f'{"ground truth":25s} | {"prediction"}:25s | confidence score & preds vs. gt'
-                pred_logs = f'{DASHED}\n{head}\n{DASHED}\n'
-                for gt, pred, confidence in zip(labels[5:], preds[5:],
-                                                confidence_[:5]):
+                # write prediction result to log
+                pred_head = f'{"ground truth":20s} | {"prediction":20s} | confidence | T&F'
+                pred_log = f'{DASHED}\n{pred_head}\n{DASHED}\n'
+                for gt, pred, confidence in zip(label[5:], preds[5:],
+                                                confidence_[5:]):
                     if CONFIG['prediction'] == 'Attention':
                         gt = gt[:gt.find('[s]')]
                         pred = pred[:pred.find('[s]')]
 
-                    pred_logs += f'{gt:25s} | {preds:25s} | {confidence:0.4f}\t{str(pred==gt)}\n'
-                pred_logs += f'{DASHED}'
-                print(pred_logs)
-                log.write(pred_logs + '\n')
+                    pred_log += f'{gt:20s} | {pred:20s} | {confidence:0.4f} | {str(pred==gt)}\n'
+                pred_log += f'{DASHED}'
+                print(pred_log)
+                log.write(pred_log + '\n')
+                log.close()
 
-        if (i + 1) & 1e+5 == 0:
-            torch.save(
-                model.state_dict(),
-                f'{os.path.join(CONFIG["log_dir"], f"iter_{i+1}.pth")}')
+        if i % CONFIG['save_interval'] == 0:
+            torch.save(model.state_dict(),
+                       os.path.join(CONFIG['model_dir'], f'iter_{i}.pth'))
 
         if i == CONFIG['num_iters']:
-            print('stopped training.')
-            sys.exit(0)
-        i += 1
+            print('Stop training here.')
+            sys.exit()
