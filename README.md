@@ -23,12 +23,13 @@ _NOTES_: codebase for _CRAFT_ and _MORAN_ are ported from to original repository
 <a href="ocr/recognizer"><b>text-recognition</b></a>
 </summary><br>
 
-- <b>CRNN</b> 
+- <b>CRNN</b>
+  * [ ] fixes `batch_first` for AttentionCell in [sequence.py](ocr/modules/sequence.py)
   * [ ] transfer pretrained weight to fit with the model
   * [ ] fix image padding issues with [eval.py](ocr/recognizer/CRNN/tools/eval.py)
   * [ ] process ICDAR2019 for eval sets in conjunction with MJSynth val data ⇒ reduce biases
-  * [ ] creates a general dataset and generator function for both reconition model
-  * ~~[x] database parsing for training loop~~
+  * [x] ~~creates a general dataset and generator function for both reconition model~~
+  * [x] ~~database parsing for training loop~~
   * [x] ~~__FIXME__: gradient vanishing when training~~
   * [x] ~~generates logs for each training session~~
   * [x] ~~add options for continue training~~
@@ -38,7 +39,9 @@ _NOTES_: codebase for _CRAFT_ and _MORAN_ are ported from to original repository
   * [x] ~~merges valuation_fn into [train.py](ocr/recognizer/CRNN/train.py#L136)~~
 
 - <b>MORAN</b>
-  * [ ] updates Variable to Tensor since torch.autograd.Variable is deprecated
+  * [ ] Updates the whole codebase it is just badly written, check [asrn.py](ocr/modules/asrn.py)
+  * [ ] add training loops to train with current model saves -> note down the commit tag for future reference
+  * [x] ~~updates Variable to Tensor since torch.autograd.Variable is deprecated~~
 </details>
 
 
@@ -113,4 +116,11 @@ overview in `src` as follows:
 - push these changes with ```git push origin feats-branch_name```. do ```git branch``` to check which branch you are on
 - then make a pull-request on github!
 
+### CRNN. 
+[paper](https://arxiv.org/pdf/1507.05717.pdf) | [original implementation](https://github.com/bgshih/crnn)
+
+__architecture__: TPS-ResNet-biLSTM as encoder and a forward attention layer as decoder.
+
+* __TODO__: added [ ICDAR2019 ](https://rrc.cvc.uab.es/?com=introduction) for val_set in conjunction with MJSynth data
+* training: run ```python tools/generator.py``` to create dataset, `train.py` for training the models
 

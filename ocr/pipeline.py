@@ -3,8 +3,7 @@ import time
 import cv2
 import torch
 
-from detector.net import CRAFTDetector
-from recognizer.net import CRNNRecognizer, MORANRecognizer
+from ocrnet import CRAFTDetector, CRNNRecognizer, MORANRecognizer
 
 start = time.time()
 uses = 'MORAN'

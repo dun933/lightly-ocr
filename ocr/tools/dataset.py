@@ -61,8 +61,7 @@ class normalize_pad(object):
         padded = torch.FloatTensor(*self.max_size).fill_(0)
         padded[:, :, w:] = img  # -> right pad
         if self.max_size[2] != w:
-            padded[:, :, w:] = img[:, :, w - 1].unsqueeze(2).expand(
-                c, h, self.max_size[2] - w)
+            padded[:, :, w:] = img[:, :, w - 1].unsqueeze(2).expand(c, h, self.max_size[2] - w)
         return padded
 
 
@@ -79,8 +78,7 @@ class align_collate(object):
         if self.keep_ratio:
             resized_max_w = self.width
             input_channel = 3 if images[0].mode == 'RGB' else 1
-            transform = normalize_pad(
-                (input_channel, self.height, resized_max_w))
+            transform = normalize_pad((input_channel, self.height, resized_max_w))
 
             resized_images = []
             for image in images:
@@ -94,15 +92,37 @@ class align_collate(object):
                 resized = image.resize((resized_w, self.height), Image.BICUBIC)
                 resized_images.append(transform(resized))
 
-            image_tensors = torch.cat([t.unsqueeze(0) for t in resized_images],
-                                      0)
+            image_tensors = torch.cat([t.unsqueeze(0) for t in resized_images], 0)
         else:
             transform = resize_normalize((self.width, self.height))
             image_tensors = [transform(image) for image in images]
-            image_tensors = torch.cat([t.unsqueeze(0) for t in image_tensors],
-                                      0)
+            image_tensors = torch.cat([t.unsqueeze(0) for t in image_tensors], 0)
 
         return image_tensors, labels
+
+
+class random_sequential_sampler(Sampler):
+    def __init__(self, data_, batch_size):
+        self.num_samples = len(data_)
+        self.batch_size = batch_size
+
+    def __iter__(self):
+        num_batch = len(self) // self.batch_size
+        tail = len(self) % self.batch_size  # deal with tail case
+        index = torch.LongTensor(len(self)).fill_(0)
+        for i in range(num_batch):
+            random_start = random.randint(0, len(self) - self.batch_size)
+            batch_idx = random_start + torch.range(0, self.batch_size - 1)
+            index[i * self.batch_size:(i + 1) * self.batch_size] = batch_idx
+
+        if tail:
+            random_start = random.randint(0, len(self) - self.batch_size)
+            tail_idx = random_start + torch.range(0, tail - 1)
+            index[(i + 1) * self.batch_size:] = tail_idx
+        return iter(index)
+
+    def __len__(self):
+        return self.num_samples
 
 
 class LMDBDataset(Dataset):
@@ -111,12 +131,7 @@ class LMDBDataset(Dataset):
         self.root = self.config['train_root']
         self.transform = transform
         self.target_transform = target_transform
-        self.env = lmdb.open(self.root,
-                             max_readers=32,
-                             readonly=True,
-                             lock=False,
-                             readahead=False,
-                             meminit=False)
+        self.env = lmdb.open(self.root, max_readers=32, readonly=True, lock=False, readahead=False, meminit=False)
         if not self.env:
             print(f'cannot create LMDB from {self.root}')
             sys.exit(0)
@@ -176,27 +191,3 @@ class LMDBDataset(Dataset):
             label = re.sub(out_of_char, '', label)
 
         return (img, label)
-
-
-class random_sequential_sampler(Sampler):
-    def __init__(self, data_, batch_size):
-        self.num_samples = len(data_)
-        self.batch_size = batch_size
-
-    def __iter__(self):
-        num_batch = len(self) // self.batch_size
-        tail = len(self) % self.batch_size  # deal with tail case
-        index = torch.LongTensor(len(self)).fill_(0)
-        for i in range(num_batch):
-            random_start = random.randint(0, len(self) - self.batch_size)
-            batch_idx = random_start + torch.range(0, self.batch_size - 1)
-            index[i * self.batch_size:(i + 1) * self.batch_size] = batch_idx
-
-        if tail:
-            random_start = random.randint(0, len(self) - self.batch_size)
-            tail_idx = random_start + torch.range(0, tail - 1)
-            index[(i + 1) * self.batch_size:] = tail_idx
-        return iter(index)
-
-    def __len__(self):
-        return self.num_samples

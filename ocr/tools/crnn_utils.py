@@ -18,9 +18,7 @@ class CTCLabelConverter(object):
             # NOTE: 0 is reserved for 'blank' token required by CTCLoss
             self.dict[char] = i + 1
 
-        self.character = [
-            '[blank]'
-        ] + dict_character  # dummy '[blank]' token for CTCLoss (index 0)
+        self.character = ['[blank]'] + dict_character  # dummy '[blank]' token for CTCLoss (index 0)
 
     def encode(self, text, batch_max_len=25):
         # convert text-label into text-index.
@@ -39,8 +37,7 @@ class CTCLabelConverter(object):
 
             char_list = []
             for i in range(l):
-                if t[i] != 0 and (not (i > 0 and t[i - 1] == t[i])
-                                  ):  # removing repeated characters and blank.
+                if t[i] != 0 and (not (i > 0 and t[i - 1] == t[i])):  # removing repeated characters and blank.
                     char_list.append(self.character[t[i]])
             text = ''.join(char_list)
 
@@ -76,8 +73,7 @@ class AttnLabelConverter(object):
             text = list(t)
             text.append('[s]')
             text = [self.dict[char] for char in text]
-            batch_text[i][1:1 + len(text)] = torch.LongTensor(
-                text)  # batch_text[:, 0] = [GO] token
+            batch_text[i][1:1 + len(text)] = torch.LongTensor(text)  # batch_text[:, 0] = [GO] token
             return (batch_text.to(device), torch.IntTensor(length).to(device))
 
     def decode(self, text_index, length):

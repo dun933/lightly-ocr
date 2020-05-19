@@ -8,11 +8,6 @@ import torch.nn as nn
 class AttnLabelConverter(object):
     # convert between string and label for attention layer
     def __init__(self, alphabet, sep):
-        '''
-        args:
-            - alphabet<str>: set of possible characters
-            - ignore_case<bool>: whether or not to ignore all the case, default=True
-        '''
         self._scanned = False
         self._ool = ''
         self._ignore_case = True
@@ -60,10 +55,7 @@ class AttnLabelConverter(object):
             text = self.scan(text)
 
         if isinstance(text, str):
-            text = [
-                self.dict[char.lower() if self._ignore_case else char]
-                for char in text
-            ]
+            text = [self.dict[char.lower() if self._ignore_case else char] for char in text]
             length = [len(text)]
         elif isinstance(text, collections.Iterable):
             length = [len(s) for s in text]
@@ -73,49 +65,18 @@ class AttnLabelConverter(object):
 
     def decode(self, t, length):
         '''decode encoded text back to string
-        reverse encode()
-        throws AssertionError: when text and length doesn\'t match'''
+        throws AssertionError: when text and length does not match'''
         if length.numel() == 1:
             length = length[0]
-            assert t.numel(
-            ) == length, f'text with length {t.numel()} does not match with declared length {length}'
+            assert t.numel() == length, f'text with length {t.numel()} does not match with declared length {length}'
             return ''.join([self.alphabet[i] for i in t])
         else:
             # batch mode
-            assert t.numel() == length.sum(
-            ), f'text with length {t.numel()} does not match with declared length {length}'
+            assert t.numel() == length.sum(), f'text with length {t.numel()} does not match with declared length {length}'
             texts = []
             index = 0
             for i in range(length.numel()):
                 l = length[i]
-                texts.append(
-                    self.decode(t[index:index + l], torch.LongTensor([l])))
+                texts.append(self.decode(t[index:index + l], torch.LongTensor([l])))
             index += l
         return texts
-
-
-class Averager(object):
-    # Compute average for torch.Tensor, used for loss average.
-
-    def __init__(self):
-        self.reset()
-
-    def add(self, v):
-        count = v.data.numel()
-        v = v.data.sum()
-        self.n_count += count
-        self.sum += v
-
-    def reset(self):
-        self.n_count = 0
-        self.sum = 0
-
-    def val(self):
-        res = 0
-        if self.n_count != 0:
-            res = self.sum / float(self.n_count)
-        return res
-
-
-def load_data(v, data):
-    v.resize_(data.size()).copy_(data)
