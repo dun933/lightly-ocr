@@ -2,56 +2,57 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .sequence import AttentionCell, BidirectionalLSTM
+from .sequence import BidirectionalLSTM, FractionalPickup
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-# class AttentionCell(nn.Module):
-#     def __init__(self, nIn, nHidden, num_embeddings=128):
-#         super(AttentionCell, self).__init__()
-#         self.nHidden = nHidden
-#         self.i2h = nn.Linear(nIn, nHidden, bias=False)
-#         self.h2h = nn.Linear(nHidden, nHidden)
-#         self.score = nn.Linear(nHidden, 1, bias=False)
-#         self.rnn = nn.GRUCell(nIn + num_embeddings, nHidden)
-#         self.frac_pickup = FractionalPickup()
 
-#     # yapf: disable
-#     def forward(self, prev_hidden, feats, cur_embeddings, test=False):
-#         nT, nB, nC = feats.size()
-#         nHidden = self.nHidden
+class AttentionCell(nn.Module):
+    def __init__(self, nIn, nHidden, num_embeddings=128):
+        super(AttentionCell, self).__init__()
+        self.nHidden = nHidden
+        self.i2h = nn.Linear(nIn, nHidden, bias=False)
+        self.h2h = nn.Linear(nHidden, nHidden)
+        self.score = nn.Linear(nHidden, 1, bias=False)
+        self.rnn = nn.GRUCell(nIn + num_embeddings, nHidden)
+        self.frac_pickup = FractionalPickup()
 
-#         feats_proj = self.i2h(feats.view(-1, nC))
-#         prev_hidden_proj = self.h2h(prev_hidden).view(1, nB, nHidden).expand(nT, nB, nHidden).contiguous().view(-1, nHidden)
-#         emition = self.score(torch.tanh(feats_proj + prev_hidden_proj).view(-1, nHidden)).view(nT, nB)
+    # yapf: disable
+    def forward(self, prev_hidden, feats, cur_embeddings, test=False):
+        nT, nB, nC = feats.size()
+        nHidden = self.nHidden
 
-#         alpha = F.softmax(emition, 0)  # nT * nB
+        feats_proj = self.i2h(feats.view(-1, nC))
+        prev_hidden_proj = self.h2h(prev_hidden).view(1, nB, nHidden).expand(nT, nB, nHidden).contiguous().view(-1, nHidden)
+        emition = self.score(torch.tanh(feats_proj + prev_hidden_proj).view(-1, nHidden)).view(nT, nB)
 
-#         if not test:
-#             alpha_fp = self.frac_pickup(alpha.transpose(0, 1).contiguous().unsqueeze(1).unsqueeze(2)).squeeze()
-#             context = (feats * alpha_fp.transpose(0, 1).contiguous().view(nT, nB, 1).expand(nT, nB, nC)).sum(0).squeeze(0)  # nB * nC
-#             if len(context.size()) == 1:
-#                 context = context.unsqueeze(0)
-#             context = torch.cat([context, cur_embeddings], 1)
-#             cur_hidden = self.rnn(context, prev_hidden)
-#             return cur_hidden, alpha_fp
-#         else:
-#             context = (feats * alpha.view(nT, nB, 1).expand(nT, nB, nC)).sum(0).squeeze(0)  # nB * nC
-#             if len(context.size()) == 1:
-#                 context = context.unsqueeze(0)
-#             context = torch.cat([context, cur_embeddings], 1)
-#             cur_hidden = self.rnn(context, prev_hidden)
-#             return cur_hidden, alpha
+        alpha = F.softmax(emition, 0)  # nT * nB
+
+        if not test:
+            alpha_fp = self.frac_pickup(alpha.transpose(0, 1).contiguous().unsqueeze(1).unsqueeze(2)).squeeze()
+            context = (feats * alpha_fp.transpose(0, 1).contiguous().view(nT, nB, 1).expand(nT, nB, nC)).sum(0).squeeze(0)  # nB * nC
+            if len(context.size()) == 1:
+                context = context.unsqueeze(0)
+            context = torch.cat([context, cur_embeddings], 1)
+            cur_hidden = self.rnn(context, prev_hidden)
+            return cur_hidden, alpha_fp
+        else:
+            context = (feats * alpha.view(nT, nB, 1).expand(nT, nB, nC)).sum(0).squeeze(0)  # nB * nC
+            if len(context.size()) == 1:
+                context = context.unsqueeze(0)
+            context = torch.cat([context, cur_embeddings], 1)
+            cur_hidden = self.rnn(context, prev_hidden)
+            return cur_hidden, alpha
 
 
 class Attention(nn.Module):
     def __init__(self, nIn, nHidden, num_classes, num_embeddings=128):
         super(Attention, self).__init__()
-        self.attention_cell = AttentionCell(nIn, nHidden, num_embeddings, frac_pickup=True)
+        self.attention_cell = AttentionCell(nIn, nHidden, num_embeddings)
         self.nIn = nIn
         self.nHidden = nHidden
         self.generator = nn.Linear(nHidden, num_classes)
-        self.char_embed = nn.Parameter(torch.randn(num_classes + 1, num_embeddings))
+        self.char_embeddings = nn.Parameter(torch.randn(num_classes + 1, num_embeddings))
         self.num_classes = num_classes
 
     # yapf: enable
@@ -80,7 +81,7 @@ class Attention(nn.Module):
             hidden = torch.zeros(nB, nHidden).type_as(feats.data)
 
             for i in range(num_steps):
-                cur_embeddings = self.char_embed.index_select(0, targets[i])
+                cur_embeddings = self.char_embeddings.index_select(0, targets[i])
                 hidden, alpha = self.attention_cell(hidden, feats, cur_embeddings, test)
                 output_hidden[i] = hidden
 
@@ -103,7 +104,7 @@ class Attention(nn.Module):
             probs = torch.zeros(nB * num_steps, self.num_classes).to(device)
 
             for i in range(num_steps):
-                cur_embeddings = self.char_embed.index_select(0, targets_temp)
+                cur_embeddings = self.char_embeddings.index_select(0, targets_temp)
                 hidden, alpha = self.attention_cell(hidden, feats, cur_embeddings, test)
                 hidden2class = self.generator(hidden)
                 probs[i * nB:(i + 1) * nB] = hidden2class
@@ -181,7 +182,7 @@ class ResNet(nn.Module):
 
 
 class ASRN(nn.Module):
-    def __init__(self, imgH, nc, num_classes, nh, bidirectional=False):
+    def __init__(self, imgH, nc, nclass, nh, bidirectional=False, CUDA=True):
         super(ASRN, self).__init__()
         assert imgH % 16 == 0, 'imgH must be a multiple of 16'
 
@@ -194,21 +195,21 @@ class ASRN(nn.Module):
 
         self.bidirectional = bidirectional
         if self.bidirectional:
-            self.cell_fw = Attention(nh, nh, num_classes, 256)
-            self.cell_bw = Attention(nh, nh, num_classes, 256)
+            self.attentionL2R = Attention(nh, nh, nclass, 256)
+            self.attentionR2L = Attention(nh, nh, nclass, 256)
         else:
-            self.attention = Attention(nh, nh, num_classes, 256)
+            self.attention = Attention(nh, nh, nclass, 256)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                torch.nn.init.kaiming_normal_(m.weight, mode='fan_out', a=0)
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', a=0)
             elif isinstance(m, nn.BatchNorm2d):
-                torch.nn.init.constant_(m.weight, 1)
-                torch.nn.init.constant_(m.bias, 0)
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
 
-    def forward(self, inputs, length, text, text_rev, test=False):
+    def forward(self, input, length, text, text_rev, test=False):
         # conv features
-        conv = self.cnn(inputs)
+        conv = self.cnn(input)
 
         b, c, h, w = conv.size()
         assert h == 1, "the height of conv must be 1"
@@ -219,9 +220,9 @@ class ASRN(nn.Module):
         rnn = self.rnn(conv)
 
         if self.bidirectional:
-            cell_fw = self.cell_fw(rnn, length, text, test)
-            cell_bw = self.cell_bw(rnn, length, text_rev, test)
-            return cell_fw, cell_bw
+            outputL2R = self.attentionL2R(rnn, length, text, test)
+            outputR2L = self.attentionR2L(rnn, length, text_rev, test)
+            return outputL2R, outputR2L
         else:
-            outputs = self.attention(rnn, length, text, test)
-            return outputs
+            output = self.attention(rnn, length, text, test)
+        return output

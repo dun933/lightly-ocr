@@ -15,7 +15,7 @@ from torch.utils.data.sampler import Sampler
 
 
 def load_data(v, data):
-    v.data.resize_(data.size()).copy_(data)
+    v.resize_(data.size()).copy_(data)
 
 
 # taken from python docs

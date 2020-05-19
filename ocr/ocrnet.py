@@ -53,7 +53,8 @@ class CRAFTDetector:
 
         if self.cuda:
             self.net = self.net.cuda()
-            self.net = nn.DataParallel(self.net)
+            if torch.cuda.device_count() > 1:
+                self.net = nn.DataParallel(self.net).to(device)
             cudnn.benchmark = False
 
         self.net.eval()

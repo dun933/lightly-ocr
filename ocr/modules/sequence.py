@@ -48,7 +48,7 @@ class BidirectionalLSTM(nn.Module):
         # batch_first=True-> [b, seq, feats]
         self.dropout = dropout
         if self.dropout:
-            self.rnn = nn.LSTM(nIn, nHidden, bidirectional=True, dropout=dropout)
+            self.rnn = nn.LSTM(nIn, nHidden, bidirectional=True)
         else:
             self.rnn = nn.LSTM(nIn, nHidden, bidirectional=True, batch_first=True)
         self.embedding = nn.Linear(nHidden * 2, nOut)
@@ -68,6 +68,7 @@ class BidirectionalLSTM(nn.Module):
         return outputs
 
 
+# FIXME: Not usable
 class AttentionCell(nn.Module):
     # TODO: Fixes batch_first in LSTM to fix foward() difference when processing i2h
     def __init__(self, nIn, nHidden, num_embeddings, frac_pickup=False):
@@ -89,7 +90,6 @@ class AttentionCell(nn.Module):
         # NOTES: cur_embed is onehot_char for CRNN
         if self.frac_pickup is not None:
             # MORAN -> #TODO: use batch_first instead
-            assert feats.batch_first is False, 'I will fix MORAN to use batch_first in the near future, but now feats must be shape [T x b x num_classes]'
             nT, nB, nC = feats.size()
             nHidden = self.nHidden
             feats_ = self.i2h(feats.view(-1, nC))  # feats projection

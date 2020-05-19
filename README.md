@@ -49,45 +49,30 @@ _NOTES_: codebase for _CRAFT_ and _MORAN_ are ported from to original repository
 overview in `src` as follows:
 ```bash
 ./
-├── detector
-│   ├── net.py
-│   ├── CRAFT
-│   │   ├── craft_utils.py
-│   │   ├── imgproc.py
-│   │   ├── model.py
-│   │   └── vgg_bn.py
-│   ├── models
-│   └── YOLO
-├── recognizer
-│   ├── CRNN
-│   │   ├── data
-│   │   ├── modules
-│   │   │   ├── backbone.py
-│   │   │   ├── sequence.py
-│   │   │   └── transform.py
-│   │   ├── tools
-│   │   │   ├── dataset.py
-│   │   │   ├── generator.py
-│   │   │   └── utils.py
-│   │   ├── config.yml
-│   │   ├── README.md
-│   │   ├── model.py
-│   │   ├── test.py
-│   │   └── train.py
-│   ├── models
-│   ├── MORAN
-│   │   ├── dataset.py
-│   │   ├── model.py
-│   │   ├── modules
-│   │   │   ├── asrn_resnet.py
-│   │   │   ├── fractional_pickup.py
-│   │   │   └── morn.py
-│   │   ├── test.py
-│   │   └── utils.py
-│   └── net.py
-├── README.md
+├── data
+├── modules
+│   ├── asrn.py
+│   ├── backbone.py
+│   ├── morn.py
+│   ├── sequence.py
+│   ├── transform.py
+│   └── vgg_bn.py
+├── pretrained
+├── test
+│   └── utils_test.py
+├── tools
+│   ├── craft_utils.py
+│   ├── crnn_utils.py
+│   ├── dataset.py
+│   ├── generator.py
+│   ├── imgproc.py
+│   └── moran_utils.py
+├── model.py
+├── config.yml
 ├── convert.py
+├── ocrnet.py
 ├── pipeline.py
+├── train.py
 └── zoo.ipynb
 ```
 

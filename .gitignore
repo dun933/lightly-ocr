@@ -140,4 +140,7 @@ data/
 *.html
 logs/
 __init__.py
-test/
+*.png
+*.jpg
+results.txt
+
