@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from itertools import product
 
 import torch
@@ -28,12 +29,12 @@ class CTCLabelConverter(object):
 
         return (torch.IntTensor(text), torch.IntTensor(length))
 
-    def decode(self, text_index, length):
+    def decode(self, text, length):
         # convert text-index into text-label.
         texts = []
         index = 0
         for l in length:
-            t = text_index[index:index + l]
+            t = text[index:index + l]
 
             char_list = []
             for i in range(l):
@@ -49,22 +50,37 @@ class CTCLabelConverter(object):
 class AttnLabelConverter(object):
     # Convert between text-label and text-index
 
-    def __init__(self, character):
+    def __init__(self, character, sep=None):
         # character (str): set of the possible characters.
         # [GO] for the start token of the attention decoder. [s] for end-of-sentence token.
+        self.dict = {}
         list_token = ['[GO]', '[s]']  # ['[s]','[UNK]','[PAD]','[GO]']
         list_character = list(character)
         self.character = list_token + list_character
-
-        self.dict = {}
+        self.sep = sep
+        if self.sep is not None:
+            # MORAN is just a STUPID paper tbh if it works it works
+            self.character = character.split(sep)
         for i, char in enumerate(self.character):
             # print(i, char)
             self.dict[char] = i
 
+    # TODO: add scan() functionality to remove unknown token
     def encode(self, text, batch_max_len=25):
         # convert text-label into text-index.
-
-        length = [len(s) + 1 for s in text]  # +1 for [s] at end of sentence.
+        if self.sep is not None:
+            # MORAN mode
+            # already included the separator in the character list for some fucking reason the author who wrote MORAN's paper is literally on crack
+            if isinstance(text, str):
+                text = [self.dict[char] for char in text]
+                length = [len(text)]
+            elif isinstance(text, Iterable):
+                length = [len(s) for s in text]
+                text = ''.join(text)
+                text, _ = self.encode(text)
+            return (torch.LongTensor(text), torch.LongTensor(length))
+        else:
+            length = [len(s) + 1 for s in text]  # +1 for [s] at end of sentence.
         # batch_max_len = max(length) # this is not allowed for multi-gpu setting
         batch_max_len += 1
         # additional +1 for [GO] at first step. batch_text is padded with [GO] token after [s] token.
@@ -76,13 +92,31 @@ class AttnLabelConverter(object):
             batch_text[i][1:1 + len(text)] = torch.LongTensor(text)  # batch_text[:, 0] = [GO] token
             return (batch_text.to(device), torch.IntTensor(length).to(device))
 
-    def decode(self, text_index, length):
+    def decode(self, text, length):
         # convert text-index into text-label.
-        texts = []
-        for index, l in enumerate(length):
-            text = ''.join([self.character[i] for i in text_index[index, :]])
-            texts.append(text)
-        return texts
+        if self.sep is not None:
+            # MORAN : this is not index, rather a encoded text
+            if length.numel() == 1:
+                length = length[0]
+                assert text.numel() == length, f'text with length {text.numel()} does not match with declared length {length}'
+                return ''.join([self.character[i] for i in text])
+            else:
+                # batch mode
+                assert text.numel() == length.sum(), f'text with length {text.numel()} does not match with declared length {length}'
+                texts = []
+                index = 0
+                for i in range(length.numel()):
+                    l = length[i]
+                    texts.append(self.decode(text[index:index + l], torch.LongTensor([l])))
+                index += l
+            return texts
+        else:
+            # text here is a text_idx <list>
+            texts = []
+            for index, l in enumerate(length):
+                text = ''.join([self.character[i] for i in text[index, :]])
+                texts.append(text)
+            return texts
 
 
 class Averager(object):

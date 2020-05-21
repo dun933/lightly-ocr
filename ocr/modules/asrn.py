@@ -2,53 +2,65 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .sequence import BidirectionalLSTM, FractionalPickup
+from .attention import AttentionCell
+from .sequence import BidirectionalLSTM
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
-class AttentionCell(nn.Module):
-    def __init__(self, nIn, nHidden, num_embeddings=128):
-        super(AttentionCell, self).__init__()
-        self.nHidden = nHidden
-        self.i2h = nn.Linear(nIn, nHidden, bias=False)
-        self.h2h = nn.Linear(nHidden, nHidden)
-        self.score = nn.Linear(nHidden, 1, bias=False)
-        self.rnn = nn.GRUCell(nIn + num_embeddings, nHidden)
-        self.frac_pickup = FractionalPickup()
+class ASRN(nn.Module):
+    def __init__(self, imgH, nc, nclass, nh, bidirectional=False, CUDA=True):
+        super(ASRN, self).__init__()
+        assert imgH % 16 == 0, 'imgH must be a multiple of 16'
 
-    # yapf: disable
-    def forward(self, prev_hidden, feats, cur_embeddings, test=False):
-        nT, nB, nC = feats.size()
-        nHidden = self.nHidden
+        self.cnn = ResNet(nc)
 
-        feats_proj = self.i2h(feats.view(-1, nC))
-        prev_hidden_proj = self.h2h(prev_hidden).view(1, nB, nHidden).expand(nT, nB, nHidden).contiguous().view(-1, nHidden)
-        emition = self.score(torch.tanh(feats_proj + prev_hidden_proj).view(-1, nHidden)).view(nT, nB)
+        self.rnn = nn.Sequential(
+            BidirectionalLSTM(512, nh, nh),
+            BidirectionalLSTM(nh, nh, nh),
+        )
 
-        alpha = F.softmax(emition, 0)  # nT * nB
-
-        if not test:
-            alpha_fp = self.frac_pickup(alpha.transpose(0, 1).contiguous().unsqueeze(1).unsqueeze(2)).squeeze()
-            context = (feats * alpha_fp.transpose(0, 1).contiguous().view(nT, nB, 1).expand(nT, nB, nC)).sum(0).squeeze(0)  # nB * nC
-            if len(context.size()) == 1:
-                context = context.unsqueeze(0)
-            context = torch.cat([context, cur_embeddings], 1)
-            cur_hidden = self.rnn(context, prev_hidden)
-            return cur_hidden, alpha_fp
+        self.bidirectional = bidirectional
+        if self.bidirectional:
+            self.attentionL2R = Attention(nh, nh, nclass, 256)
+            self.attentionR2L = Attention(nh, nh, nclass, 256)
         else:
-            context = (feats * alpha.view(nT, nB, 1).expand(nT, nB, nC)).sum(0).squeeze(0)  # nB * nC
-            if len(context.size()) == 1:
-                context = context.unsqueeze(0)
-            context = torch.cat([context, cur_embeddings], 1)
-            cur_hidden = self.rnn(context, prev_hidden)
-            return cur_hidden, alpha
+            self.attention = Attention(nh, nh, nclass, 256)
+
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', a=0)
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+
+    def forward(self, inputs, length, text, text_rev, test=False):
+        # conv features
+        conv = self.cnn(inputs)
+
+        b, c, h, w = conv.size()
+        assert h == 1, "the height of conv must be 1"
+        conv = conv.squeeze(2)
+        conv = conv.permute(2, 0, 1).contiguous()  # [w, b, c]
+
+        # rnn features
+        rnn = self.rnn(conv)
+
+        if self.bidirectional:
+            outputL2R = self.attentionL2R(rnn, length, text, test)
+            outputR2L = self.attentionR2L(rnn, length, text_rev, test)
+            return outputL2R, outputR2L
+        else:
+            outputs = self.attention(rnn, length, text, test)
+        return outputs
 
 
+# MORAN implementations
+# TODO: just fix their code this is horrible
 class Attention(nn.Module):
     def __init__(self, nIn, nHidden, num_classes, num_embeddings=128):
         super(Attention, self).__init__()
-        self.attention_cell = AttentionCell(nIn, nHidden, num_embeddings)
+        self.attention_cell = AttentionCell(nIn, nHidden, num_embeddings, MORAN=True)
         self.nIn = nIn
         self.nHidden = nHidden
         self.generator = nn.Linear(nHidden, num_classes)
@@ -179,50 +191,3 @@ class ResNet(nn.Module):
         block4 = self.block4(block3)
         block5 = self.block5(block4)
         return block5
-
-
-class ASRN(nn.Module):
-    def __init__(self, imgH, nc, nclass, nh, bidirectional=False, CUDA=True):
-        super(ASRN, self).__init__()
-        assert imgH % 16 == 0, 'imgH must be a multiple of 16'
-
-        self.cnn = ResNet(nc)
-
-        self.rnn = nn.Sequential(
-            BidirectionalLSTM(512, nh, nh),
-            BidirectionalLSTM(nh, nh, nh),
-        )
-
-        self.bidirectional = bidirectional
-        if self.bidirectional:
-            self.attentionL2R = Attention(nh, nh, nclass, 256)
-            self.attentionR2L = Attention(nh, nh, nclass, 256)
-        else:
-            self.attention = Attention(nh, nh, nclass, 256)
-
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', a=0)
-            elif isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
-
-    def forward(self, input, length, text, text_rev, test=False):
-        # conv features
-        conv = self.cnn(input)
-
-        b, c, h, w = conv.size()
-        assert h == 1, "the height of conv must be 1"
-        conv = conv.squeeze(2)
-        conv = conv.permute(2, 0, 1).contiguous()  # [w, b, c]
-
-        # rnn features
-        rnn = self.rnn(conv)
-
-        if self.bidirectional:
-            outputL2R = self.attentionL2R(rnn, length, text, test)
-            outputR2L = self.attentionR2L(rnn, length, text_rev, test)
-            return outputL2R, outputR2L
-        else:
-            output = self.attention(rnn, length, text, test)
-        return output

@@ -12,11 +12,14 @@ import yaml
 from PIL import Image
 
 from model import CRNN, MORAN, VGG_UNet
-from tools import crnn_utils, dataset, imgproc, moran_utils
-from tools.craft_utils import adjustResultCoordinates, getDetBoxes
+from tools import dataset, imgproc
+from tools.det_utils import adjustResultCoordinates, getDetBoxes
+from tools.recog_utils import AttnLabelConverter, CTCLabelConverter
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 MODEL_PATH = os.path.join(os.path.dirname(os.path.relpath(__file__)), 'pretrained')
+with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'config.yml'), 'r') as f:
+    config = yaml.safe_load(f)
 
 
 def copy_state_dict(state_dict):
@@ -153,7 +156,7 @@ class MORANRecognizer:
             p.requires_grad = False
         self.moran.eval()
 
-        self.converter = moran_utils.AttnLabelConverter(self.alphabet, ':')
+        self.converter = AttnLabelConverter(self.alphabet, sep=':')
         self.transformer = dataset.resize_normalize((100, 32))
 
     def process(self, cv_img):
@@ -191,8 +194,6 @@ class MORANRecognizer:
 class CRNNRecognizer:
     alphabet = '0123456789abcdefghijklmnopqrstuvwxyz'
     model_path = os.path.join(MODEL_PATH, 'CRNN.pth')
-    with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'config.yml'), 'r') as f:
-        config = yaml.safe_load(f)
     crnn = CRNN(config)
     cuda = False
     converter = None
@@ -209,9 +210,9 @@ class CRNNRecognizer:
         else:
             self.crnn.load_state_dict(torch.load(self.model_path, map_location='cpu'))
         if self.config['prediction'] == 'CTC':
-            self.converter = crnn_utils.CTCLabelConverter(self.alphabet)
+            self.converter = CTCLabelConverter(self.alphabet)
         else:
-            self.converter = crnn_utils.AttnLabelConverter(self.alphabet)
+            self.converter = AttnLabelConverter(self.alphabet)
         self.transformer = dataset.resize_normalize((100, 32))
 
         for p in self.crnn.parameters():

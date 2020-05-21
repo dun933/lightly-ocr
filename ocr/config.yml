@@ -1,5 +1,5 @@
 # training
-pretrained: ""
+pretrained: "pretrained"
 log_dir: "models/logs"
 model_dir: "models"
 train_root: "data/train"
@@ -14,8 +14,9 @@ num_iters: 30000
 val_interval: 1000
 save_interval: 1000
 lr: 0.01
+# optmizer choice
 adam: False
-beta1: 0.9 # use adadelta by default
+beta1: 0.9 # adamdelta beta1
 rho: 0.95
 eps: 1.E-8
 grad_clip: 5

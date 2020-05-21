@@ -4,7 +4,7 @@ import time
 import cv2
 import torch
 
-from ocrnet import CRAFTDetector, CRNNRecognizer, MORANRecognizer
+from net import CRAFTDetector, CRNNRecognizer, MORANRecognizer
 
 start = time.time()
 uses = 'MORAN'
@@ -20,7 +20,7 @@ recognizer.load()
 recload = time.time()
 print(f'took {recload-init:.3f}s for `load()`')
 
-img = 'test/test2.jpg'
+img = 'test/test3.jpeg'
 res = []
 processed = cv2.imread(img)
 
@@ -41,7 +41,7 @@ with torch.no_grad():
 
     recproc = time.time()
     print(f'took {recproc-detproc:.3f}s using {uses} for recognition')
-with open(os.path.join(os.path.dirname(os.path.relpath(__file__)), 'results.txt'), 'w') as f:
+with open(os.path.join(os.path.dirname(os.path.relpath(__file__)), 'test', 'results.txt'), 'w') as f:
     for i in res:
         f.write(f'prediction: {i}\n')
     f.close()

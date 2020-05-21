@@ -141,6 +141,7 @@ data/
 logs/
 __init__.py
 *.png
+*.jpeg
 *.jpg
 results.txt
 

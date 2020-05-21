@@ -3,9 +3,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from modules.asrn import ASRN
-from modules.backbone import ResNet
+from modules.attention import Attention
 from modules.morn import MORN
-from modules.sequence import Attention, BidirectionalLSTM
+from modules.resnet import ResNet
+from modules.sequence import BidirectionalLSTM
 from modules.transform import TPS_STN
 from modules.vgg_bn import init_weights, vgg16_bn
 
