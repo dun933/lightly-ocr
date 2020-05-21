@@ -1,33 +1,52 @@
 # lightly-ocr
 
-lightly's backend - from receipt to text on browser o.o
+[![CircleCI](https://circleci.com/gh/aar0npham/lightly-ocr/tree/master.svg?style=svg)](https://circleci.com/gh/aar0npham/lightly-ocr/tree/master)
+
+lightly's backend - receipt to text :chart_with_downwards_trend:
 
 OCR tasks can be found in `/ocr`, ingress controller can be found in `/ingress`
 
-_NOTES_: codebase for _CRAFT_ and _MORAN_ are ported from to original repository with some compatibility fixes to work with newer version , refers to [credits.](#credits)
+__NOTES__: _CRAFT_ and _MORAN_ are ported from to original repository with some compatibility fixes to work with newer version , refers to [credits.](#credits)
 
 ## table of content.
 * [credits.](#credits)
 * [structure.](#structure)
 * [todo.](#todo)
-* [instruction.](#instruction)
+* [how to use this repo.](#how-to-use-this-repo)
+* [develop.](#develop)
+* [tldr.](#tldr)
 
 ## credits.
 * [MORAN-v2](https://github.com/Canjie-Luo/MORAN_v2)
 * [CRAFT-pytorch](https://github.com/clovaai/CRAFT-pytorch)
-* [pytorch bgshih's CRNN](https://github.com/meijieru/crnn.pytorch)
+* [crnn.pytorch](https://github.com/meijieru/crnn.pytorch)
 
 ## todo.
+
 <details>
 <summary>
-<a href="ocr/recognizer"><b>text-recognition</b></a>
+<a href="ocr/"><b>text-detection</b></a>
+</summary><br>
+
+- <b>CRAFT</b>
+  * [ ] add `unit_test`
+  * [ ] includes training loop (_under construction_)
+
+- <b>YOLO</b>
+  * [ ] unprivate
+</details>
+
+<details>
+<summary>
+<a href="ocr/"><b>text-recognition</b></a>
 </summary><br>
 
 - <b>CRNN</b>
+  * [ ] add `unit_test`
   * [ ] fixes `batch_first` for AttentionCell in [sequence.py](ocr/modules/sequence.py)
-  * [ ] transfer pretrained weight to fit with the model
-  * [ ] fix image padding issues with [eval.py](ocr/recognizer/CRNN/tools/eval.py)
   * [ ] process ICDAR2019 for eval sets in conjunction with MJSynth val data ⇒ reduce biases
+  * [x] ~~transfer trained weight to fit with the model~~
+  * [x] ~~fix image padding issues with [eval.py](ocr/recognizer/CRNN/tools/eval.py)~~
   * [x] ~~creates a general dataset and generator function for both reconition model~~
   * [x] ~~database parsing for training loop~~
   * [x] ~~__FIXME__: gradient vanishing when training~~
@@ -40,58 +59,38 @@ _NOTES_: codebase for _CRAFT_ and _MORAN_ are ported from to original repository
 
 - <b>MORAN</b>
   * [ ] Updates the whole codebase it is just badly written, check [asrn.py](ocr/modules/asrn.py)
-  * [ ] add training loops to train with current model saves -> note down the commit tag for future reference
+  * [ ] add `train.py` for continue training
   * [x] ~~updates Variable to Tensor since torch.autograd.Variable is deprecated~~
 </details>
-
 
 ## structure.
 overview in `src` as follows:
 ```bash
 ./
-├── detector
-│   ├── net.py
-│   ├── CRAFT
-│   │   ├── craft_utils.py
-│   │   ├── imgproc.py
-│   │   ├── model.py
-│   │   └── vgg_bn.py
-│   ├── models
-│   └── YOLO
-├── recognizer
-│   ├── CRNN
-│   │   ├── data
-│   │   ├── modules
-│   │   │   ├── backbone.py
-│   │   │   ├── sequence.py
-│   │   │   └── transform.py
-│   │   ├── tools
-│   │   │   ├── dataset.py
-│   │   │   ├── generator.py
-│   │   │   └── utils.py
-│   │   ├── config.yml
-│   │   ├── README.md
-│   │   ├── model.py
-│   │   ├── test.py
-│   │   └── train.py
-│   ├── models
-│   ├── MORAN
-│   │   ├── dataset.py
-│   │   ├── model.py
-│   │   ├── modules
-│   │   │   ├── asrn_resnet.py
-│   │   │   ├── fractional_pickup.py
-│   │   │   └── morn.py
-│   │   ├── test.py
-│   │   └── utils.py
-│   └── net.py
-├── README.md
-├── convert.py
-├── pipeline.py
-└── zoo.ipynb
+├── data                # contains training/testing/validation dataset
+├── pretrained          # location for model save
+├── modules             # contains core file for setting up models
+├── test                # contains unit testing file
+├── tools               # contains tools to generate dataset/image processing etc.
+├── train               # code to train specific model
+├── config.yml          # config.yml 
+├── convert.py          # convert model to .onnx file format
+├── model.py            # contains model constructed from `modules`
+├── net.py              # end-to-end OCR 
+├── pipeline.py         # pipeline
+└── zoo.ipynb           # playground if you aren't sure about anything
 ```
 
-## instruction.
+## how to use this repo.
+- This repo by no means to disregard/take credits from the work of original authors. I'm just having fun taking on the challenges and reimplement for `lightly`
+- Run `bash scripts/download_model.sh` to get the pretrained model
+- to test the model do:
+```python
+  python ocr/pipeline.py --img [IM_PATH]
+```
+- to train your own refers to [tldr.](#tldr). Only support CRNN atm, I will add CRAFT/YOLO/MORAN in the near future
+
+## develop.
 - make sure the repository is up to date with ```git pull origin master```
 - create a new branch __BEFORE__ working with ```git checkout -b feats-branch_name``` where `feats` is the feature you are working on and the `branch-name` is the directory containing that features. 
   
@@ -115,12 +114,26 @@ overview in `src` as follows:
 
 - push these changes with ```git push origin feats-branch_name```. do ```git branch``` to check which branch you are on
 - then make a pull-request on github!
+- have fun hacking!
+
+## tldr. 
+
+### CRAFT.
+[paper](https://arxiv.org/pdf/1904.01941.pdf) | [original implementation](https://github.com/clovaai/CRAFT-pytorch)
+
+__architecture__: VGG16-Unet as backbone, with [UpConv](ocr/modules/vgg_bn.py#L23) return region/affinity score
+* adopt from [ Faster R-CNN ](https://arxiv.org/pdf/1506.01497.pdf)
 
 ### CRNN. 
 [paper](https://arxiv.org/pdf/1507.05717.pdf) | [original implementation](https://github.com/bgshih/crnn)
 
 __architecture__: TPS-ResNet-biLSTM as encoder and a forward attention layer as decoder.
 
-* __TODO__: added [ ICDAR2019 ](https://rrc.cvc.uab.es/?com=introduction) for val_set in conjunction with MJSynth data
-* training: run ```python tools/generator.py``` to create dataset, `train.py` for training the models
+* training: run ```python tools/generator.py``` to create dataset, `train/crnn.py` for training the models
+* model is under `model.py`
 
+### MORAN.
+[paper](https://arxiv.org/pdf/1901.03003.pdf) | [orignal implementation](https://github.com/Canjie-Luo/MORAN_v2)
+
+__architecture__: modified version of CRNN, instead of using traditional TPS to deal with rectification task, they implements `fractional_pickup`, which can be found [here](ocr/modules/attention.py#L9)
+* the code written by the author by no means not functional, it is just a mess, added into __TODO__ for reimplement the paper

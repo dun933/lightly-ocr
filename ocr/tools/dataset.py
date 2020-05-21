@@ -15,7 +15,7 @@ from torch.utils.data.sampler import Sampler
 
 
 def load_data(v, data):
-    v.data.resize_(data.size()).copy_(data)
+    v.resize_(data.size()).copy_(data)
 
 
 # taken from python docs
@@ -126,9 +126,9 @@ class random_sequential_sampler(Sampler):
 
 
 class LMDBDataset(Dataset):
-    def __init__(self, config, transform=None, target_transform=None):
+    def __init__(self, config, root=None, transform=None, target_transform=None):
         self.config = config
-        self.root = self.config['train_root']
+        self.root = root
         self.transform = transform
         self.target_transform = target_transform
         self.env = lmdb.open(self.root, max_readers=32, readonly=True, lock=False, readahead=False, meminit=False)

@@ -134,10 +134,16 @@ _.*
 img/
 .DS_STORE
 *.pth
+*.bak
+*.txt
 *.onnx
 *.json
 data/
 *.html
 logs/
 __init__.py
-test/
+*.png
+*.jpeg
+*.jpg
+results.txt
+

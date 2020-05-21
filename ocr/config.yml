@@ -1,5 +1,6 @@
 # training
-pretrained: ""
+saved_model_path: ""
+pretrained: "pretrained"
 log_dir: "models/logs"
 model_dir: "models"
 train_root: "data/train"
@@ -14,8 +15,9 @@ num_iters: 30000
 val_interval: 1000
 save_interval: 1000
 lr: 0.01
+# optmizer choice
 adam: False
-beta1: 0.9 # use adadelta by default
+beta1: 0.9 # adamdelta beta1
 rho: 0.95
 eps: 1.E-8
 grad_clip: 5
@@ -32,7 +34,7 @@ num_fiducial: 20
 input_channel: 1
 output_channel: 512
 hidden_size: 256
-num_classes: 1000
+num_classes: 38
 character: "0123456789abcdefghijklmnopqrstuvwxyz"
 #sensitive
 filtering: True
@@ -42,3 +44,4 @@ transform: "TPS" # others: None
 backbone: "ResNet" #TODO: added RCNN
 sequence: "biLSTM" # others: None
 prediction: "Attention" # Others: CTC
+pipeline: "CRAFT-CRNN"

@@ -1,23 +1,13 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from modules.asrn import ASRN
-from modules.backbone import ResNet
+from modules.biLSTM import Attention, BidirectionalLSTM  # CRNN's attention
 from modules.morn import MORN
-from modules.sequence import Attention, BidirectionalLSTM
-from modules.transform import TPS_STN
-from modules.vgg_bn import init_weights, vgg16_bn
-
-
-class UpConv(nn.Module):
-    def __init__(self, in_ch, mid_ch, out_ch):
-        super(UpConv, self).__init__()
-        self.conv = nn.Sequential(nn.Conv2d(in_ch + mid_ch, mid_ch, kernel_size=1), nn.BatchNorm2d(mid_ch), nn.ReLU(inplace=True),
-                                  nn.Conv2d(mid_ch, out_ch, kernel_size=3, padding=1), nn.BatchNorm2d(out_ch), nn.ReLU(inplace=True))
-
-    def forward(self, x):
-        x = self.conv(x)
-        return x
+from modules.resnet50v1 import ResNet_FeatureExtractor
+from modules.TPS_STN import TPS_SpatialTransformerNetwork
+from modules.vgg_bn import UpConv, init_weights, vgg16_bn
 
 
 class VGG_UNet(nn.Module):
@@ -75,9 +65,9 @@ class VGG_UNet(nn.Module):
         return y.permute(0, 2, 3, 1), feature
 
 
-class MORAN(nn.Module):
+class MORANet(nn.Module):
     def __init__(self, nc, num_classes, nh, height, width, bidirectional=False, input_data_type='torch.cuda.FloatTensor', max_batch=256):
-        super(MORAN, self).__init__()
+        super(MORANet, self).__init__()
         self.MORN = MORN(nc, height, width, input_data_type, max_batch)
         self.ASRN = ASRN(height, nc, num_classes, nh, bidirectional)
 
@@ -92,50 +82,55 @@ class MORAN(nn.Module):
             return preds
 
 
-class CRNN(nn.Module):
+class CRNNet(nn.Module):
     # TPS - ResNet - biLSTM - Attn/CTC
     def __init__(self, config):
-        super(CRNN, self).__init__()
+        super(CRNNet, self).__init__()
         self.config = config
-        if config['transform'] == 'TPS':
-            self.transform = TPS_STN(F=config['num_fiducial'],
-                                     im_size=(config['height'], config['width']),
-                                     im_rectified=(config['height'], config['width']),
-                                     num_channels=config['input_channel'])
-        else:
-            print('not using TPS')
+        self.stages = {'Trans': config['transform'], 'Feat': config['backbone'], 'Seq': config['sequence'], 'Pred': config['prediction']}
 
-        if config['backbone'] == 'ResNet':
-            self.backbone = ResNet(config['input_channel'], config['output_channel'])
+        if config['transform'] == 'TPS':
+            self.Transformation = TPS_SpatialTransformerNetwork(F=config['num_fiducial'],
+                                                                im_size=(config['height'], config['width']),
+                                                                im_rectified=(config['height'], config['width']),
+                                                                num_channels=config['input_channel'])
         else:
-            raise Exception('No backbone specified')
-        self.backbone_outputs = config['output_channel']
-        self.adaptivepool = nn.AdaptiveAvgPool2d((None, 1))
+            print('No tps specified')
+        if config['backbone'] == 'ResNet':
+            self.FeatureExtraction = ResNet_FeatureExtractor(config['input_channel'], config['output_channel'])
+        else:
+            raise Exception('No backbone module specified')
+        self.FeatureExtraction_output = config['output_channel']  # int(imgH/16-1) * 512
+        self.AdaptiveAvgPool = nn.AdaptiveAvgPool2d((None, 1))  # Transform final (imgH/16-1) -> 1
 
         if config['sequence'] == 'biLSTM':
-            self.sequence = nn.Sequential(BidirectionalLSTM(self.backbone_outputs, config['hidden_size'], config['hidden_size']),
-                                          BidirectionalLSTM(config['hidden_size'], config['hidden_size'], config['hidden_size']))
-            self.sequence_outputs = config['hidden_size']
+            self.SequenceModeling = nn.Sequential(BidirectionalLSTM(self.FeatureExtraction_output, config['hidden_size'], config['hidden_size']),
+                                                  BidirectionalLSTM(config['hidden_size'], config['hidden_size'], config['hidden_size']))
+            self.SequenceModeling_output = config['hidden_size']
+        else:
+            print('No sequence module specified')
+            self.SequenceModeling_output = self.FeatureExtraction_output
 
         if config['prediction'] == 'CTC':
-            self.prediction = nn.Linear(self.sequence_outputs, config['num_classes'])
+            self.Prediction = nn.Linear(self.SequenceModeling_output, config['num_classes'])
         elif config['prediction'] == 'Attention':
-            self.prediction = Attention(self.sequence_outputs, config['hidden_size'], config['num_classes'])
+            self.Prediction = Attention(self.SequenceModeling_output, config['hidden_size'], config['num_classes'])
         else:
             raise Exception('prediction needs to be either CTC or attention-based sequence prediction')
 
     def forward(self, inputs, text, training=True):
-        if not self.config['transform'] == 'None':
-            inputs = self.transform(inputs)
-
-        x = self.backbone(inputs)
-        x = self.adaptivepool(x.permute(0, 3, 1, 2))  # [b,c,h,w]-> [b,w,c,h]
-        x = x.squeeze(3)
-
-        if self.config['sequence'] == 'biLSTM':
-            x = self.sequence(x)
-        if self.config['prediction'] == 'CTC':
-            pred = self.prediction(x.contiguous())
+        if not self.stages['Trans'] == "None":
+            inputs = self.Transformation(inputs)
+        visual_feature = self.FeatureExtraction(inputs)
+        visual_feature = self.AdaptiveAvgPool(visual_feature.permute(0, 3, 1, 2))  # [b, c, h, w] -> [b, w, c, h]
+        visual_feature = visual_feature.squeeze(3)
+        if self.stages['Seq'] == 'biLSTM':
+            contextual_feature = self.SequenceModeling(visual_feature)
         else:
-            pred = self.prediction(x.contiguous(), text, training, batch_max_len=self.config['batch_max_len'])
-        return pred
+            contextual_feature = visual_feature  # for convenience. this is NOT contextually modeled by BiLSTM
+        if self.stages['Pred'] == 'CTC':
+            prediction = self.Prediction(contextual_feature.contiguous())
+        else:
+            prediction = self.Prediction(contextual_feature.contiguous(), text, training, batch_max_len=self.config['batch_max_len'])
+
+        return prediction
