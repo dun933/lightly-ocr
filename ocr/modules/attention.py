@@ -1,8 +1,45 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+
+class FractionalPickup(nn.Module):
+    def __init__(self):
+        super(FractionalPickup, self).__init__()
+
+    def forward(self, x):
+        x_shape = x.size()
+        assert len(x_shape) == 4
+        assert x_shape[2] == 1
+
+        frac_num = 1
+
+        h_list = 1.
+        w_list = np.arange(x_shape[3]) * 2. / (x_shape[3] - 1) - 1
+        for i in range(frac_num):
+            idx = int(np.random.rand() * len(w_list))
+            if idx <= 0 or idx >= x_shape[3] - 1:
+                continue
+            beta = np.random.rand() / 4.
+            value0 = (beta * w_list[idx] + (1 - beta) * w_list[idx - 1])
+            value1 = (beta * w_list[idx - 1] + (1 - beta) * w_list[idx])
+            w_list[idx - 1] = value0
+            w_list[idx] = value1
+
+        grid = np.meshgrid(w_list, h_list, indexing='ij')
+        grid = np.stack(grid, axis=-1)
+        grid = np.transpose(grid, (1, 0, 2))
+        grid = np.expand_dims(grid, 0)
+        grid = np.tile(grid, [x_shape[0], 1, 1, 1])
+        grid = torch.from_numpy(grid).type(x.data.type()).to(device)
+        self.grid = torch.Tensor(grid, requires_grad=False)
+
+        x_offset = F.grid_sample(x, self.grid, align_corners=True)
+
+        return x_offset
 
 
 class AttentionCell(nn.Module):
@@ -66,50 +103,3 @@ class AttentionCell(nn.Module):
             concat = torch.cat([context, cur_embed], 1)
             nh = self.rnn(concat, h)
             return nh, alpha
-
-
-# attention layer for CRNN
-class Attention(nn.Module):
-    def __init__(self, nIn, nHidden, num_classes):
-        super(Attention, self).__init__()
-        self.cell = AttentionCell(nIn, nHidden, num_classes)
-        self.nHidden = nHidden
-        self.num_classes = num_classes
-        self.linear = nn.Linear(nHidden, num_classes)
-
-    def onehot_decode(self, input_char, onehot_dim=38):
-        input_char = input_char.unsqueeze(1)
-        batch_size = input_char.size(0)
-        onehot = torch.FloatTensor(batch_size, onehot_dim).zero_().to(device)
-        return onehot.scatter_(1, input_char, 1)
-
-    def forward(self, batch_hidden, text, is_train=True, batch_max_len=25):
-        # batch_hidden is the hidden state of lstm [batch, num_steps, num_classes]
-        # text index of each image [batch_size x (max_len+1)] -> include [GO] token
-        # return probability distribution of each step [batch_size, num_steps, num_classes]
-
-        batch_size = batch_hidden.size(0)
-        num_steps = batch_max_len + 1
-        h = torch.FloatTensor(batch_size, num_steps, self.nHidden).fill_(0).to(device)
-        nh = (torch.FloatTensor(batch_size, self.nHidden).fill_(0).to(device), torch.FloatTensor(batch_size, self.nHidden).fill_(0).to(device))
-
-        if is_train:
-            for i in range(num_steps):
-                onehot_char = self.onehot_decode(text[:, i], onehot_dim=self.num_classes)
-                nh, alpha = self.cell(nh, batch_hidden,
-                                      onehot_char)  # nh: decoder's hidden at s_(t-1), batch_hidden: encoder's hidden H, onehot_char: onehot(y_(t_1))
-                h[:, i, :] = nh[0]  # -> lstm hidden index (0:hidden, 1:cell)
-            probs = self.linear(h)
-        else:
-            targets = torch.LongTensor(batch_size).fill_(0).to(device)
-            probs = torch.FloatTensor(batch_size, num_steps, self.num_classes).fill_(0).to(device)
-
-            for i in range(num_steps):
-                onehot_char = self.onehot_decode(targets, onehot_dim=self.num_classes)
-                nh, alpha = self.cell(nh, batch_hidden, onehot_char)
-                probs_step = self.linear(nh[0])
-                probs[:, i, :] = probs_step
-                _, n_in = probs_step.max(1)  # -> returns next inputs
-                targets = n_in
-
-        return probs

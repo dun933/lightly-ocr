@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from .attention import AttentionCell
-from .sequence import BidirectionalLSTM
+from .biLSTM import BidirectionalLSTM
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -137,6 +137,33 @@ class Attention(nn.Module):
             return probs_res
 
 
+class ResNet(nn.Module):
+    def __init__(self, c_in):
+        super(ResNet, self).__init__()
+        self.block0 = nn.Sequential(nn.Conv2d(c_in, 32, 3, 1, 1), nn.BatchNorm2d(32, momentum=0.01))
+        self.block1 = self._make_layer(32, 32, 2, 3)
+        self.block2 = self._make_layer(32, 64, 2, 4)
+        self.block3 = self._make_layer(64, 128, (2, 1), 6)
+        self.block4 = self._make_layer(128, 256, (2, 1), 6)
+        self.block5 = self._make_layer(256, 512, (2, 1), 3)
+
+    def _make_layer(self, c_in, c_out, stride, repeat=3):
+        layers = []
+        layers.append(residual_block(c_in, c_out, stride))
+        for i in range(repeat - 1):
+            layers.append(residual_block(c_out, c_out, 1))
+        return nn.Sequential(*layers)
+
+    def forward(self, x):
+        block0 = self.block0(x)
+        block1 = self.block1(block0)
+        block2 = self.block2(block1)
+        block3 = self.block3(block2)
+        block4 = self.block4(block3)
+        block5 = self.block5(block4)
+        return block5
+
+
 class residual_block(nn.Module):
     def __init__(self, c_in, c_out, stride):
         super(residual_block, self).__init__()
@@ -164,30 +191,3 @@ class residual_block(nn.Module):
         if self.downsample is not None:
             residual = self.downsample(residual)
         return self.relu(residual + conv2)
-
-
-class ResNet(nn.Module):
-    def __init__(self, c_in):
-        super(ResNet, self).__init__()
-        self.block0 = nn.Sequential(nn.Conv2d(c_in, 32, 3, 1, 1), nn.BatchNorm2d(32, momentum=0.01))
-        self.block1 = self._make_layer(32, 32, 2, 3)
-        self.block2 = self._make_layer(32, 64, 2, 4)
-        self.block3 = self._make_layer(64, 128, (2, 1), 6)
-        self.block4 = self._make_layer(128, 256, (2, 1), 6)
-        self.block5 = self._make_layer(256, 512, (2, 1), 3)
-
-    def _make_layer(self, c_in, c_out, stride, repeat=3):
-        layers = []
-        layers.append(residual_block(c_in, c_out, stride))
-        for i in range(repeat - 1):
-            layers.append(residual_block(c_out, c_out, 1))
-        return nn.Sequential(*layers)
-
-    def forward(self, x):
-        block0 = self.block0(x)
-        block1 = self.block1(block0)
-        block2 = self.block2(block1)
-        block3 = self.block3(block2)
-        block4 = self.block4(block3)
-        block5 = self.block5(block4)
-        return block5

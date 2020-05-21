@@ -134,6 +134,8 @@ _.*
 img/
 .DS_STORE
 *.pth
+*.bak
+*.txt
 *.onnx
 *.json
 data/

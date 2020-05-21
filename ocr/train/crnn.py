@@ -42,7 +42,7 @@ cudnn.deterministic = True
 if not os.path.exists(CONFIG['model_dir']):
     os.makedirs(CONFIG['model_dir'])
 # init logs file for easier debugging
-with open(os.path.join(CONFIG['log_dir'], 'log_dataset.txt'), 'a+') as dataset_log:
+with open(os.path.join(CONFIG['log_dir'], 'log_dataset.txt'), 'a') as dataset_log:
     dataset_log.write(DASHED + '\n')
     print(DASHED)
     # init dataset/loader
@@ -65,14 +65,13 @@ train_loader = DataLoader(train_dataset,
 val_dataset = dataset.LMDBDataset(CONFIG, root=CONFIG['val_root'], transform=dataset.resize_normalize((100, 32)))
 
 # setup fine tune
-with open(os.path.join(CONFIG['log_dir'], 'log_model.txt'), 'a+') as f:
+with open(os.path.join(CONFIG['log_dir'], 'log_model.txt'), 'a') as f:
     CONFIG['num_classes'] = len(CONFIG['character']) + 1
     if CONFIG['prediction'] == 'CTC':
         converter = utils.CTCLabelConverter(CONFIG['character'])
     else:
         converter = utils.AttnLabelConverter(CONFIG['character'])
     CONFIG['num_classes'] = len(converter.character)
-    f.close()
 
     # init model here
     model = CRNN(CONFIG)
