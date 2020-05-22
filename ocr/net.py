@@ -18,7 +18,7 @@ from tools.det_utils import adjustResultCoordinates, getDetBoxes
 from tools.recog_utils import AttnLabelConverter, CTCLabelConverter
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-MODEL_PATH = os.path.join(os.path.dirname(os.path.relpath(__file__)), 'pretrained')
+MODEL_PATH = os.path.join(os.path.dirname(os.path.relpath(__file__)), 'models')
 with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'config.yml'), 'r') as yf:
     config = yaml.safe_load(yf)
 
@@ -139,12 +139,83 @@ class CRAFT(Detector):
         return roi, boxes, polys, image
 
 
+class CRNN(Recognizer):
+    alphabet = '0123456789abcdefghijklmnopqrstuvwxyz'
+    model_path = os.path.join(MODEL_PATH, 'CRNN.pth')
+    net = CRNNet(config).to(device)
+    config = config
+    cuda = False
+    converter = None
+    transformer = None
+
+    def load(self):
+        if torch.cuda.is_available():
+            self.cuda = True
+            if torch.cuda.device_count() > 1:
+                self.net = nn.DataParallel(self.net).to(device)
+
+        # print(f'loading pretrained from {self.model_path}')
+        if self.cuda:
+            self.net.load_state_dict(torch.load(self.model_path))
+        else:
+            self.net.load_state_dict(torch.load(self.model_path, map_location='cpu'))
+        if self.config['prediction'] == 'CTC':
+            self.converter = CTCLabelConverter(self.alphabet)
+        else:
+            self.converter = AttnLabelConverter(self.alphabet)
+        self.config['num_classes'] = len(self.converter.character)
+        self.transformer = dataset.resize_normalize((100, 32))
+
+        for p in self.net.parameters():
+            p.requires_grad = False
+        self.net.eval()
+
+    def process(self, image):
+        batch_size = 1  # since we only process one image
+        image = Image.fromarray(image).convert('L')
+        # print(image.size)
+        image = self.transformer(image).to(device)
+        image = image.view(1, *image.size()).to(device)
+        len_pred = torch.IntTensor([self.config['batch_max_len'] * batch_size]).to(device)
+        text_pred = torch.LongTensor(batch_size, self.config['batch_max_len'] + 1).fill_(0).to(device)
+
+        if self.config['prediction'] == 'CTC':
+            preds = self.net(image, text=text_pred)
+            preds_size = torch.IntTensor([preds.size(1)] * batch_size)
+            _, preds_idx = preds.max(2)
+            preds_idx = preds_idx.view(-1)
+            raw_pred = self.converter.decode(preds_idx.data, preds_size.data)
+        else:
+            preds = self.net(image, text=text_pred, training=False)
+            _, preds_idx = preds.max(2)
+            raw_pred = self.converter.decode(preds_idx, len_pred)
+
+        probs = F.softmax(preds, dim=2)
+        max_probs, _ = probs.max(dim=2)
+        with open(os.path.join(os.path.dirname(os.path.relpath(__file__)), 'test', 'log_results.txt'), 'w+') as f:
+            for max_prob in max_probs:
+                # returns prediction here
+                if self.config['prediction'] == 'Attention':
+                    try:
+                        # [EOS] token process in a list
+                        pred_EOS = raw_pred[0].index('[s]')
+                        raw_pred = raw_pred[0][:pred_EOS]
+                        max_prob = max_prob[:pred_EOS]
+                    except ValueError:
+                        print('Not found EOS token, continue.\n(potential error)')
+                        continue  # when there isn't a EOS token
+                confidence = max_prob.cumprod(dim=0)[-1]
+                f.write(f'results: {raw_pred}\t\tconfidence score: {confidence:.4f}\n')
+                print(f'results: {raw_pred}\t\tconfidence score: {confidence:.4f}')
+        return raw_pred
+
+
 class MORAN(Recognizer):
     model_path = os.path.join(MODEL_PATH, 'MORANv2.pth')
     alphabet = '0:1:2:3:4:5:6:7:8:9:a:b:c:d:e:f:g:h:i:j:k:l:m:n:o:p:q:r:s:t:u:v:w:x:y:z:$'
     max_iter = 20
     cuda = False
-    moran = None
+    net = None
     state_dict = None
     converter = None
     transformer = None
@@ -152,10 +223,10 @@ class MORAN(Recognizer):
     def load(self):
         if torch.cuda.is_available():
             self.cuda = True
-            self.moran = MORANet(1, len(self.alphabet.split(':')), 256, 32, 100, bidirectional=True)
-            self.moran = self.moran.to(device)
+            self.net = MORANet(1, len(self.alphabet.split(':')), 256, 32, 100, bidirectional=True)
+            self.net = self.net.to(device)
         else:
-            self.moran = MORANet(1, len(self.alphabet.split(':')), 256, 32, 100, bidirectional=True, input_data_type='torch.FloatTensor')
+            self.net = MORANet(1, len(self.alphabet.split(':')), 256, 32, 100, bidirectional=True, input_data_type='torch.FloatTensor')
         if self.cuda:
             self.state_dict = torch.load(self.model_path)
         else:
@@ -165,11 +236,11 @@ class MORAN(Recognizer):
         for k, v in self.state_dict.items():
             name = k.replace('module.', '')
             MORAN_state_dict_rename[name] = v
-        self.moran.load_state_dict(MORAN_state_dict_rename)
+        self.net.load_state_dict(MORAN_state_dict_rename)
 
-        for p in self.moran.parameters():
+        for p in self.net.parameters():
             p.requires_grad = False
-        self.moran.eval()
+        self.net.eval()
 
         self.converter = AttnLabelConverter(self.alphabet, sep=':')
         self.transformer = dataset.resize_normalize((100, 32))
@@ -192,7 +263,7 @@ class MORAN(Recognizer):
             t, l = self.converter.encode('0' * self.max_iter)
             dataset.load_data(text, t)
             dataset.load_data(length, l)
-            output = self.moran(image, length, text, text, test=True, debug=True)
+            output = self.net(image, length, text, text, test=True, debug=True)
 
             preds, preds_rev = output[0]
             out_img = output[1]
@@ -206,74 +277,3 @@ class MORAN(Recognizer):
             sim_preds_rev = sim_preds_rev.strip().split('$')[0]
 
         return sim_preds, sim_preds_rev, out_img
-
-
-class CRNN(Recognizer):
-    alphabet = '0123456789abcdefghijklmnopqrstuvwxyz'
-    model_path = os.path.join(MODEL_PATH, 'CRNN.pth')
-    crnn = CRNNet(config).to(device)
-    config = config
-    cuda = False
-    converter = None
-    transformer = None
-
-    def load(self):
-        if torch.cuda.is_available():
-            self.cuda = True
-            if torch.cuda.device_count() > 1:
-                self.crnn = nn.DataParallel(self.crnn).to(device)
-
-        # print(f'loading pretrained from {self.model_path}')
-        if self.cuda:
-            self.crnn.load_state_dict(torch.load(self.model_path))
-        else:
-            self.crnn.load_state_dict(torch.load(self.model_path, map_location='cpu'))
-        if self.config['prediction'] == 'CTC':
-            self.converter = CTCLabelConverter(self.alphabet)
-        else:
-            self.converter = AttnLabelConverter(self.alphabet)
-        self.config['num_classes'] = len(self.converter.character)
-        self.transformer = dataset.resize_normalize((100, 32))
-
-        for p in self.crnn.parameters():
-            p.requires_grad = False
-        self.crnn.eval()
-
-    def process(self, image):
-        batch_size = 1  # since we only process one image
-        image = Image.fromarray(image).convert('L')
-        # print(image.size)
-        image = self.transformer(image).to(device)
-        image = image.view(1, *image.size()).to(device)
-        len_pred = torch.IntTensor([self.config['batch_max_len'] * batch_size]).to(device)
-        text_pred = torch.LongTensor(batch_size, self.config['batch_max_len'] + 1).fill_(0).to(device)
-
-        if self.config['prediction'] == 'CTC':
-            preds = self.crnn(image, text_pred)
-            preds_size = torch.IntTensor([preds.size(1)] * batch_size)
-            _, preds_idx = preds.max(2)
-            preds_idx = preds_idx.view(-1)
-            raw_pred = self.converter.decode(preds_idx.data, preds_size.data)
-        else:
-            preds = self.crnn(image, text_pred, training=False)
-            _, preds_idx = preds.max(2)
-            raw_pred = self.converter.decode(preds_idx, len_pred)
-
-        probs = F.softmax(preds, dim=2)
-        max_probs, _ = probs.max(dim=2)
-        with open(os.path.join(os.path.dirname(os.path.relpath(__file__)), 'test', 'log_results.txt'), 'w+') as f:
-            for max_prob in max_probs:
-                # returns prediction here
-                if self.config['prediction'] == 'Attention':
-                    try:
-                        # [EOS] token process in a list
-                        pred_EOS = raw_pred[0].index('[s]')
-                        raw_pred = raw_pred[0][:pred_EOS]
-                        max_prob = max_prob[:pred_EOS]
-                    except ValueError:
-                        print('Not found EOS token, continue.\n(potential error)')
-                        continue  # when there isn't a EOS token
-                confidence = max_prob.cumprod(dim=0)[-1]
-                f.write(f'results: {raw_pred}\t\tconfidence score: {confidence:.4f}\n')
-                print(f'results: {raw_pred}\t\tconfidence score: {confidence:.4f}')
-        return raw_pred

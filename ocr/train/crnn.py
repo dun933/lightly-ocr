@@ -39,8 +39,8 @@ torch.cuda.manual_seed(CONFIG['seeds'])
 cudnn.benchmark = True
 cudnn.deterministic = True
 
-if not os.path.exists(CONFIG['model_dir']):
-    os.makedirs(CONFIG['model_dir'])
+if not os.path.exists(CONFIG['log_dir']):
+    os.makedirs(CONFIG['log_dir'])
 # init logs file for easier debugging
 with open(os.path.join(CONFIG['log_dir'], 'log_dataset.txt'), 'a') as dataset_log:
     dataset_log.write(DASHED + '\n')
@@ -299,7 +299,7 @@ for epoch in range(CONFIG['num_epochs']):
 
                 if accuracy > best_acc:
                     best_acc = accuracy
-                    torch.save(model.state_dict(), os.path.join(CONFIG['model_dir'], 'best_acc.pth'))
+                    torch.save(model.state_dict(), os.path.join(CONFIG['log_dir'], 'best_acc.pth'))
                 best_model_log = f'{"best accuracy":20s}: {best_acc:0.3f}'
 
                 loss_model_log = f'{loss_log}\n{model_log}\n{best_model_log}\n'
@@ -321,7 +321,7 @@ for epoch in range(CONFIG['num_epochs']):
                 log.close()
 
         if i % CONFIG['save_interval'] == 0:
-            torch.save(model.state_dict(), os.path.join(CONFIG['model_dir'], f'iter_{i}.pth'))
+            torch.save(model.state_dict(), os.path.join(CONFIG['log_dir'], f'iter_{i}.pth'))
 
         if i == CONFIG['num_iters']:
             print('Stop training here.')

@@ -23,6 +23,10 @@ __NOTES__: _CRAFT_ and _MORAN_ are ported from to original repository with some 
 
 ## todo.
 
+* [ ] complete `__init__.py`
+* [ ] finish CircleCI
+* [ ] database controller in [ingress](ingress/)
+
 <details>
 <summary>
 <a href="ocr/"><b>text-detection</b></a>
@@ -118,13 +122,13 @@ overview in `src` as follows:
 
 ## tldr. 
 
-### CRAFT.
+### [CRAFT.](ocr/net.py#L55)
 [paper](https://arxiv.org/pdf/1904.01941.pdf) | [original implementation](https://github.com/clovaai/CRAFT-pytorch)
 
 __architecture__: VGG16-Unet as backbone, with [UpConv](ocr/modules/vgg_bn.py#L23) return region/affinity score
 * adopt from [ Faster R-CNN ](https://arxiv.org/pdf/1506.01497.pdf)
 
-### CRNN. 
+### [CRNN.](ocr/net.py#L211) 
 [paper](https://arxiv.org/pdf/1507.05717.pdf) | [original implementation](https://github.com/bgshih/crnn)
 
 __architecture__: TPS-ResNet-biLSTM as encoder and a forward attention layer as decoder.
@@ -132,7 +136,7 @@ __architecture__: TPS-ResNet-biLSTM as encoder and a forward attention layer as 
 * training: run ```python tools/generator.py``` to create dataset, `train/crnn.py` for training the models
 * model is under `model.py`
 
-### MORAN.
+### [MORAN.](ocr/net.py#L142)
 [paper](https://arxiv.org/pdf/1901.03003.pdf) | [orignal implementation](https://github.com/Canjie-Luo/MORAN_v2)
 
 __architecture__: modified version of CRNN, instead of using traditional TPS to deal with rectification task, they implements `fractional_pickup`, which can be found [here](ocr/modules/attention.py#L9)

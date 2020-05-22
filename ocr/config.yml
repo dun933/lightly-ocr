@@ -1,8 +1,7 @@
 # training
-saved_model_path: ""
-pretrained: "pretrained"
-log_dir: "models/logs"
-model_dir: "models"
+onnx_path: "converted"
+pretrained: "models"
+log_dir: "logs"
 train_root: "data/train"
 val_root: "data/val"
 
@@ -40,8 +39,8 @@ character: "0123456789abcdefghijklmnopqrstuvwxyz"
 filtering: True
 
 # model
-transform: "TPS" # others: None
-backbone: "ResNet" #TODO: added RCNN
-sequence: "biLSTM" # others: None
-prediction: "Attention" # Others: CTC
-pipeline: "CRAFT-CRNN"
+transform: "TPS" # choices: None-TPS
+backbone: "ResNet" #TODO: choices: RCNN - VGG - ResNet
+sequence: "biLSTM" # choices: None - biLSTM
+prediction: "Attention" # choices: CTC - Attention
+pipeline: "CRAFT-CRNN" # choices: CRAFT-MORANv2 CRAFT-CRNN

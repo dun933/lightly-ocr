@@ -54,7 +54,6 @@ class Attention(nn.Module):
         # batch_hidden is the hidden state of lstm [batch, num_steps, num_classes]
         # text index of each image [batch_size x (max_len+1)] -> include [GO] token
         # return probability distribution of each step [batch_size, num_steps, num_classes]
-
         batch_size = batch_hidden.size(0)
         num_steps = batch_max_len + 1
         h = torch.FloatTensor(batch_size, num_steps, self.nHidden).fill_(0).to(device)
