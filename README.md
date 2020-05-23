@@ -6,7 +6,6 @@ lightly's backend - receipt to text :chart_with_downwards_trend:
 
 OCR tasks can be found in `/ocr`, ingress controller can be found in `/ingress`
 
-__NOTES__: _CRAFT_ and _MORAN_ are ported from to original repository with some compatibility fixes to work with newer version , refers to [credits.](#credits)
 
 ## table of content.
 * [credits.](#credits)
@@ -23,10 +22,10 @@ __NOTES__: _CRAFT_ and _MORAN_ are ported from to original repository with some 
 
 ## todo.
 
-* [ ] complete `__init__.py`
 * [ ] add docstring, fixes `too-many-locals`
 * [ ] backend controller for [ingress](ingress/)
 * [ ] custom ops for `torch.nn.functional.grid_sample`
+* [x] ~~complete `__init__.py`~~
 * [x] ~~added Dockerfile/CircleCI~~
 
 <details>
@@ -39,7 +38,7 @@ __NOTES__: _CRAFT_ and _MORAN_ are ported from to original repository with some 
   * [ ] includes training loop (_under construction_)
 
 - <b>YOLO</b>
-  * [ ] updates training loops
+  * [ ] future add
 </details>
 
 <details>
@@ -49,8 +48,8 @@ __NOTES__: _CRAFT_ and _MORAN_ are ported from to original repository with some 
 
 - <b>CRNN</b>
   * [ ] add `unit_test`
-  * [ ] fixes `batch_first` for AttentionCell in [sequence.py](ocr/modules/sequence.py)
   * [ ] process ICDAR2019 for eval sets in conjunction with MJSynth val data ⇒ reduce biases
+  * [x] ~~fixes `batch_first` for AttentionCell in [sequence.py](ocr/modules/sequence.py)~~
   * [x] ~~transfer trained weight to fit with the model~~
   * [x] ~~fix image padding issues with [eval.py](ocr/recognizer/CRNN/tools/eval.py)~~
   * [x] ~~creates a general dataset and generator function for both reconition model~~
@@ -69,17 +68,20 @@ __NOTES__: _CRAFT_ and _MORAN_ are ported from to original repository with some 
 overview in `src` as follows:
 ```bash
 ./
-├── models              # location for model save
+├── save_models         # location for model save
 ├── modules             # contains core file for setting up models
-├── data                # contains training/testing/validation dataset
 ├── train               # code to train specific model
 ├── test                # contains unit testing file
 ├── tools               # contains tools to generate dataset/image processing etc.
+├── Dockerfile          # Dockerfile for creating container
+├── requirements.txt    # contains modules using for import
 ├── config.yml          # config.yml 
 ├── convert.py          # convert model to .onnx file format
 ├── model.py            # contains model constructed from `modules`
-├── net.py              # end-to-end OCR 
-└── pipeline.py
+├── net.py              # contains detector and recognizer segment of OCR
+├── server.py           # run basic server with `flask`
+├── pipeline.py         # end-to-end OCR
+└── torch2onnx.py       # conversion to .onnx (future use with onnx.js) _WIP_
 ```
 
 ## how to use this repo.
@@ -131,6 +133,6 @@ __architecture__: VGG16-Unet as backbone, with [UpConv](ocr/modules/vgg_bn.py#L2
 
 __architecture__: TPS-ResNet-biLSTM as encoder and a forward attention layer as decoder.
 
-* training: run ```python tools/generator.py``` to create dataset, `train/crnn.py` for training the models
-* model is under `model.py`
+* training: run ```python ocr/tools/generator.py``` to create dataset, `ocr/train/crnn.py` for training the models
+* model is under [model.py](ocr/model.py)
 
