@@ -5,7 +5,7 @@ import unittest
 
 import torch
 
-from tools import utils
+from ocr.tools import recog_utils
 
 
 def equal(a1, a2):
@@ -24,7 +24,7 @@ def equal(a1, a2):
 
 class utils_test(unittest.TestCase):
     def check_converter(self):
-        encoder = utils.CTCLabelConverter(string.ascii_lowercase)
+        encoder = recog_utils.CTCLabelConverter(string.ascii_lowercase)
 
         res = encoder.encode('fifa')
         tar = (torch.IntTensor([6, 9, 6, 1]), torch.IntTensor([4]))
@@ -55,7 +55,7 @@ class utils_test(unittest.TestCase):
         self.assertTrue(equal(result, target))
 
     def check_averager(self):
-        acc = utils.Averager()
+        acc = recog_utils.Averager()
         acc.add(torch.Tensor([1, 2]))
         acc.add(torch.Tensor([[5, 6]]))
         assert acc.val() == 3.5

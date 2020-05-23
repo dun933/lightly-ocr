@@ -12,15 +12,14 @@ import torch.nn.functional as F
 import yaml
 from PIL import Image
 
-from model import CRNNet, MORANet, VGG_UNet
-from tools import dataset, imgproc
-from tools.det_utils import adjustResultCoordinates, getDetBoxes
-from tools.recog_utils import AttnLabelConverter, CTCLabelConverter
+from model import CRNNet, VGG_UNet
+from tools import (AttnLabelConverter, CTCLabelConverter, ResizeNormalize, adjustResultCoordinates, getDetBoxes, normalizeMeanVariance,
+                   resizeAspectRatio)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-MODEL_PATH = os.path.join(os.path.dirname(os.path.relpath(__file__)), 'models')
+MODEL_PATH = os.path.join(os.path.dirname(os.path.relpath(__file__)), 'save_models')
 with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'config.yml'), 'r') as yf:
-    config = yaml.safe_load(yf)
+    CONFIG = yaml.safe_load(yf)
 
 
 def copy_state_dict(state_dict):
@@ -78,18 +77,14 @@ class CRAFT(Detector):
         self.net.eval()
 
     def process(self, image):
-
         with torch.no_grad():
-            img_resized, target_ratio, size_heatmap = imgproc.resize_aspect_ratio(image,
-                                                                                  self.canvas_size,
-                                                                                  interpolation=cv2.INTER_LINEAR,
-                                                                                  mag_ratio=self.magnify_ratio)
+            img_resized, target_ratio, _ = resizeAspectRatio(image, self.canvas_size, interpolation=cv2.INTER_LINEAR, mag_ratio=self.magnify_ratio)
             ratio_h = ratio_w = 1 / target_ratio
 
-            x = imgproc.normalizeMeanVariance(img_resized)
+            x = normalizeMeanVariance(img_resized)
             x = torch.from_numpy(x).permute(2, 0, 1)  # [h x w x c] -> [c x h x w]
             x = torch.Tensor(x.unsqueeze(0)).to(device)
-            y, feature = self.net(x)
+            y, _ = self.net(x)
 
             score_text = y[0, :, :, 0].cpu().data.numpy()
             score_link = y[0, :, :, 1].cpu().data.numpy()
@@ -97,7 +92,7 @@ class CRAFT(Detector):
             boxes, polys = getDetBoxes(score_text, score_link, self.text_threshold, self.link_threshold, self.low_text_score, self.enable_polygon)
             boxes = adjustResultCoordinates(boxes, ratio_w, ratio_h)
             polys = adjustResultCoordinates(boxes, ratio_w, ratio_h)
-            for k in range(len(polys)):
+            for k, _ in enumerate(polys):
                 if polys[k] is None:
                     polys[k] = boxes[k]
 
@@ -135,15 +130,15 @@ class CRAFT(Detector):
                 x0, y0, x1, y1 = rect
                 sub = image[x0:x1, y0:y1, :]
                 roi.append(sub)
-
-        return roi, boxes, polys, image
+        # can return : roi, boxes, polys, image
+        return roi
 
 
 class CRNN(Recognizer):
     alphabet = '0123456789abcdefghijklmnopqrstuvwxyz'
     model_path = os.path.join(MODEL_PATH, 'CRNN.pth')
-    net = CRNNet(config).to(device)
-    config = config
+    net = CRNNet(CONFIG).to(device)
+    config = CONFIG
     cuda = False
     converter = None
     transformer = None
@@ -164,7 +159,7 @@ class CRNN(Recognizer):
         else:
             self.converter = AttnLabelConverter(self.alphabet)
         self.config['num_classes'] = len(self.converter.character)
-        self.transformer = dataset.resize_normalize((100, 32))
+        self.transformer = ResizeNormalize((100, 32))
 
         for p in self.net.parameters():
             p.requires_grad = False
@@ -172,6 +167,7 @@ class CRNN(Recognizer):
 
     def process(self, image):
         batch_size = 1  # since we only process one image
+        res = dict()
         image = Image.fromarray(image).convert('L')
         # print(image.size)
         image = self.transformer(image).to(device)
@@ -205,75 +201,7 @@ class CRNN(Recognizer):
                         print('Not found EOS token, continue.\n(potential error)')
                         continue  # when there isn't a EOS token
                 confidence = max_prob.cumprod(dim=0)[-1]
-                f.write(f'results: {raw_pred}\t\tconfidence score: {confidence:.4f}\n')
-                print(f'results: {raw_pred}\t\tconfidence score: {confidence:.4f}')
-        return raw_pred
-
-
-class MORAN(Recognizer):
-    model_path = os.path.join(MODEL_PATH, 'MORANv2.pth')
-    alphabet = '0:1:2:3:4:5:6:7:8:9:a:b:c:d:e:f:g:h:i:j:k:l:m:n:o:p:q:r:s:t:u:v:w:x:y:z:$'
-    max_iter = 20
-    cuda = False
-    net = None
-    state_dict = None
-    converter = None
-    transformer = None
-
-    def load(self):
-        if torch.cuda.is_available():
-            self.cuda = True
-            self.net = MORANet(1, len(self.alphabet.split(':')), 256, 32, 100, bidirectional=True)
-            self.net = self.net.to(device)
-        else:
-            self.net = MORANet(1, len(self.alphabet.split(':')), 256, 32, 100, bidirectional=True, input_data_type='torch.FloatTensor')
-        if self.cuda:
-            self.state_dict = torch.load(self.model_path)
-        else:
-            self.state_dict = torch.load(self.model_path, map_location='cpu')
-
-        MORAN_state_dict_rename = OrderedDict()
-        for k, v in self.state_dict.items():
-            name = k.replace('module.', '')
-            MORAN_state_dict_rename[name] = v
-        self.net.load_state_dict(MORAN_state_dict_rename)
-
-        for p in self.net.parameters():
-            p.requires_grad = False
-        self.net.eval()
-
-        self.converter = AttnLabelConverter(self.alphabet, sep=':')
-        self.transformer = dataset.resize_normalize((100, 32))
-
-    def process(self, image):
-
-        with torch.no_grad():
-            image = Image.fromarray(image).convert('L')
-            image = self.transformer(image)
-            if self.cuda:
-                image = image.cuda()
-
-            image = image.view(1, *image.size())
-            # image = Variable(image)
-            text = torch.LongTensor(1 * 5)
-            length = torch.IntTensor(1)
-            # text = Variable(text)
-            # length = Variable(length)
-
-            t, l = self.converter.encode('0' * self.max_iter)
-            dataset.load_data(text, t)
-            dataset.load_data(length, l)
-            output = self.net(image, length, text, text, test=True, debug=True)
-
-            preds, preds_rev = output[0]
-            out_img = output[1]
-
-            _, preds = preds.max(1)
-            _, preds_rev = preds_rev.max(1)
-
-            sim_preds = self.converter.decode(preds.data, length.data)
-            sim_preds = sim_preds.strip().split('$')[0]
-            sim_preds_rev = self.converter.decode(preds_rev.data, length.data)
-            sim_preds_rev = sim_preds_rev.strip().split('$')[0]
-
-        return sim_preds, sim_preds_rev, out_img
+                res[confidence] = raw_pred
+                f.write(f'results: {raw_pred}\nconfidence score: {confidence:.4f}\n')
+                print(f'results: {raw_pred}\nconfidence score: {confidence:.4f}\n')
+        return raw_pred, res

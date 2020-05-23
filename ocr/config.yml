@@ -1,6 +1,6 @@
 # training
-onnx_path: "converted"
-pretrained: "models"
+onnx_path: "converted_models"
+pretrained: "save_models"
 log_dir: "logs"
 train_root: "data/train"
 val_root: "data/val"

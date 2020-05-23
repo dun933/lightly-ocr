@@ -34,7 +34,7 @@ def _accumulate(iterable, fn=lambda x, y: x + y):
 
 
 # refers to https://github.com/meijieru/crnn.pytorch/blob/master/dataset.py
-class resize_normalize(object):
+class ResizeNormalize(object):
     def __init__(self, size, interpolation=Image.BICUBIC):
         self.size = size
         self.interpolation = interpolation
@@ -47,7 +47,7 @@ class resize_normalize(object):
         return img
 
 
-class normalize_pad(object):
+class NormalizePad(object):
     def __init__(self, max_size, pad_type='right'):
         self.toTensor = transforms.ToTensor()
         self.max_size = max_size
@@ -65,7 +65,7 @@ class normalize_pad(object):
         return padded
 
 
-class align_collate(object):
+class AlignCollate(object):
     def __init__(self, height=32, width=100, keep_ratio=False):
         self.height = height
         self.width = width
@@ -78,7 +78,7 @@ class align_collate(object):
         if self.keep_ratio:
             resized_max_w = self.width
             input_channel = 3 if images[0].mode == 'RGB' else 1
-            transform = normalize_pad((input_channel, self.height, resized_max_w))
+            transform = NormalizePad((input_channel, self.height, resized_max_w))
 
             resized_images = []
             for image in images:
@@ -94,14 +94,14 @@ class align_collate(object):
 
             image_tensors = torch.cat([t.unsqueeze(0) for t in resized_images], 0)
         else:
-            transform = resize_normalize((self.width, self.height))
+            transform = ResizeNormalize((self.width, self.height))
             image_tensors = [transform(image) for image in images]
             image_tensors = torch.cat([t.unsqueeze(0) for t in image_tensors], 0)
 
         return image_tensors, labels
 
 
-class random_sequential_sampler(Sampler):
+class RandomSequentialSampler(Sampler):
     def __init__(self, data_, batch_size):
         self.num_samples = len(data_)
         self.batch_size = batch_size

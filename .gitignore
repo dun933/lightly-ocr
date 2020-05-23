@@ -128,22 +128,24 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# ignore cache file in macOS
 _.*
 ._.*
 ._*
-img/
 .DS_STORE
+# get download path from get_model.sh
 *.pth
 *.bak
+# only contains log
+logs/
 *.txt
 *.onnx
-*.json
+# dir for database (generated from train/)
 data/
-*.html
-logs/
-__init__.py
+# includes test/server images
 *.png
 *.jpeg
 *.jpg
-results.txt
-
+# ignore unecessary init file
+ocr/test/__init__.py
+ocr/train/__init__.py

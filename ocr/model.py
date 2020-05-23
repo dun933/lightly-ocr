@@ -2,20 +2,15 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from modules.asrn import ASRN
-from modules.biLSTM import Attention, BidirectionalLSTM  # CRNN's attention
-from modules.morn import MORN
-from modules.resnet50v1 import ResNet_FeatureExtractor
-from modules.TPS_STN import TPS_SpatialTransformerNetwork
-from modules.vgg_bn import UpConv, init_weights, vgg16_bn
+from modules import (Attention, BidirectionalLSTM, ResNet_FeatureExtractor, TPS_SpatialTransformerNetwork, UpConv, init_weights, vgg16_bn)
 
 
 class VGG_UNet(nn.Module):
     def __init__(self, pretrained=False, freeze=False):
         super(VGG_UNet, self).__init__()
-        """ Base network """
+        # Base network
         self.basenet = vgg16_bn(pretrained, freeze)
-        """ U network """
+        # U network
         self.upconv1 = UpConv(1024, 512, 256)
         self.upconv2 = UpConv(512, 256, 128)
         self.upconv3 = UpConv(256, 128, 64)
@@ -40,9 +35,9 @@ class VGG_UNet(nn.Module):
         init_weights(self.upconv4.modules())
         init_weights(self.conv_cls.modules())
 
-    def forward(self, x):
+    def forward(self, inputs):
         # basenet
-        sources = self.basenet(x)
+        sources = self.basenet(inputs)
 
         # UNet
         y = torch.cat([sources[0], sources[1]], dim=1)
@@ -63,23 +58,6 @@ class VGG_UNet(nn.Module):
         y = self.conv_cls(feature)
 
         return y.permute(0, 2, 3, 1), feature
-
-
-class MORANet(nn.Module):
-    def __init__(self, nc, num_classes, nh, height, width, bidirectional=False, input_data_type='torch.cuda.FloatTensor', max_batch=256):
-        super(MORANet, self).__init__()
-        self.MORN = MORN(nc, height, width, input_data_type, max_batch)
-        self.ASRN = ASRN(height, nc, num_classes, nh, bidirectional)
-
-    def forward(self, x, length, text, text_rev, test=False, debug=False):
-        if debug:
-            x_rectified, img = self.MORN(x, test, debug=debug)
-            preds = self.ASRN(x_rectified, length, text, text_rev, test)
-            return preds, img
-        else:
-            x_rectified = self.MORN(x, test, debug=debug)
-            preds = self.ASRN(x_rectified, length, text, text_rev, test)
-            return preds
 
 
 class CRNNet(nn.Module):

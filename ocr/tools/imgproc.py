@@ -35,7 +35,7 @@ def denormalizeMeanVariance(in_img, mean=(0.485, 0.456, 0.406), variance=(0.229,
     return img
 
 
-def resize_aspect_ratio(img, square_size, interpolation, mag_ratio=1):
+def resizeAspectRatio(img, square_size, interpolation, mag_ratio=1):
     height, width, channel = img.shape
 
     # magnify image size

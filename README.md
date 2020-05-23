@@ -24,8 +24,10 @@ __NOTES__: _CRAFT_ and _MORAN_ are ported from to original repository with some 
 ## todo.
 
 * [ ] complete `__init__.py`
-* [ ] finish CircleCI
-* [ ] database controller in [ingress](ingress/)
+* [ ] add docstring, fixes `too-many-locals`
+* [ ] backend controller for [ingress](ingress/)
+* [ ] custom ops for `torch.nn.functional.grid_sample`
+* [x] ~~added Dockerfile/CircleCI~~
 
 <details>
 <summary>
@@ -37,7 +39,7 @@ __NOTES__: _CRAFT_ and _MORAN_ are ported from to original repository with some 
   * [ ] includes training loop (_under construction_)
 
 - <b>YOLO</b>
-  * [ ] unprivate
+  * [ ] updates training loops
 </details>
 
 <details>
@@ -61,36 +63,32 @@ __NOTES__: _CRAFT_ and _MORAN_ are ported from to original repository with some 
   * [x] ~~added [generator.py](ocr/recognizer/CRNN/tools/generator.py) to generate lmdb~~
   * [x] ~~merges valuation_fn into [train.py](ocr/recognizer/CRNN/train.py#L136)~~
 
-- <b>MORAN</b>
-  * [ ] Updates the whole codebase it is just badly written, check [asrn.py](ocr/modules/asrn.py)
-  * [ ] add `train.py` for continue training
-  * [x] ~~updates Variable to Tensor since torch.autograd.Variable is deprecated~~
 </details>
 
 ## structure.
 overview in `src` as follows:
 ```bash
 ./
-├── data                # contains training/testing/validation dataset
-├── pretrained          # location for model save
+├── models              # location for model save
 ├── modules             # contains core file for setting up models
+├── data                # contains training/testing/validation dataset
+├── train               # code to train specific model
 ├── test                # contains unit testing file
 ├── tools               # contains tools to generate dataset/image processing etc.
-├── train               # code to train specific model
 ├── config.yml          # config.yml 
 ├── convert.py          # convert model to .onnx file format
 ├── model.py            # contains model constructed from `modules`
 ├── net.py              # end-to-end OCR 
-├── pipeline.py         # pipeline
-└── zoo.ipynb           # playground if you aren't sure about anything
+└── pipeline.py
 ```
 
 ## how to use this repo.
 - This repo by no means to disregard/take credits from the work of original authors. I'm just having fun taking on the challenges and reimplement for `lightly`
+- if you want to use MORAN please refer to [tree@66171c8058](https://github.com/aar0npham/lightly-ocr/tree/66171c80586537ae915938b2e92eb83c474cda79)
 - Run `bash scripts/download_model.sh` to get the pretrained model
 - to test the model do:
 ```python
-  python ocr/pipeline.py --img [IM_PATH]
+python ocr/pipeline.py --img [IM_PATH]
 ```
 - to train your own refers to [tldr.](#tldr). Only support CRNN atm, I will add CRAFT/YOLO/MORAN in the near future
 
@@ -136,8 +134,3 @@ __architecture__: TPS-ResNet-biLSTM as encoder and a forward attention layer as 
 * training: run ```python tools/generator.py``` to create dataset, `train/crnn.py` for training the models
 * model is under `model.py`
 
-### [MORAN.](ocr/net.py#L142)
-[paper](https://arxiv.org/pdf/1901.03003.pdf) | [orignal implementation](https://github.com/Canjie-Luo/MORAN_v2)
-
-__architecture__: modified version of CRNN, instead of using traditional TPS to deal with rectification task, they implements `fractional_pickup`, which can be found [here](ocr/modules/attention.py#L9)
-* the code written by the author by no means not functional, it is just a mess, added into __TODO__ for reimplement the paper

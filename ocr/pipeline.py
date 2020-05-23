@@ -7,12 +7,13 @@ import cv2
 import torch
 import yaml
 
-from net import CRAFT, CRNN, MORAN
+from net import CRAFT, CRNN
 
 with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'config.yml'), 'r') as f:
     CONFIG = yaml.safe_load(f)
 
 
+# remove module.* on model_save
 def rename(key, rename='module'):
     if rename in key.split('.'):
         return key[len(rename) + 1:]
@@ -43,7 +44,7 @@ def calc_time(fn=lambda x, *a, **kw: x(*a, **kw)):
 
 
 # begin pipeline
-def prepare(var, config=CONFIG):
+def prepModel(config=CONFIG):
     use_detector, use_recognizer = config['pipeline'].split('-')
     if use_detector == 'CRAFT':
         detector = CRAFT()
@@ -51,8 +52,6 @@ def prepare(var, config=CONFIG):
         raise AssertionError(f'only supported CRAFT atm. got {use_detector} instead')
     if use_recognizer == 'CRNN':
         recognizer = CRNN()
-    elif use_recognizer == 'MORAN':
-        recognizer = MORAN()
     else:
         raise AssertionError(f'only supports either CRNN or MORAN. got {use_recognizer} instead')
     mpaths = [detector.model_path, recognizer.model_path]
@@ -61,48 +60,66 @@ def prepare(var, config=CONFIG):
     # load from pretrained
     detector.load()
     recognizer.load()
-    # prepare images
-    image = var.img
-    image = cv2.imread(image)  # use cv2 to read image
-    return image, detector, recognizer
+    return detector, recognizer
 
 
-def getText(image, detector, recognizer):
+def getText(image, detector, recognizer, write=True):
     res = []
     use_recognizer = CONFIG['pipeline'].split('-')[1]
+    image = cv2.imread(image)  # use cv2 to read image
     with torch.no_grad():
         # detection
-        roi, _, _, _ = detector.process(image)
+        roi = detector.process(image)
 
         # recognition
         for _, img in enumerate(roi):
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             if use_recognizer == 'CRNN':
-                text = recognizer.process(gray)
-            elif use_recognizer == 'MORAN':
-                text, _, _ = recognizer.process(gray)
+                text, res_dict = recognizer.process(gray)
             else:
                 raise ValueError(f'using either CRNN or MORAN, got {use_recognizer} instead')
                 break
             res.append(text)
-
-    with open(os.path.join(os.path.dirname(os.path.relpath(__file__)), 'test', 'results.txt'), 'w') as f:
-        for i in res:
-            f.write(f'prediction: {i}\n')
-        print(f'wrote results to {f.name}')
-        f.close()
+    if write:
+        with open(os.path.join(os.path.dirname(os.path.relpath(__file__)), 'test', 'results.txt'), 'w') as f:
+            for i in res:
+                f.write(f'prediction: {i}\n')
+            print(f'wrote results to {f.name}')
+            f.close()
     torch.cuda.empty_cache()
+    return res, res_dict
 
 
+class serveModel():
+    def __init__(self, config_file: str, thresh: int):
+        self.config_file = config_file
+        self.loadConfig()
+        self.thresh = thresh
+        self.model_root = self.config['pretrained']
+        self.loadModel()
+
+    def loadConfig(self):
+        with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), self.config_file), 'r') as f:
+            self.config = yaml.safe_load(f)
+
+    def loadModel(self):
+        self.detector, self.recognizer = prepModel(self.config)
+
+    def predict(self, inputs: str):
+        getRes = []
+        _, res_dict = getText(inputs, self.detector, self.recognizer)
+        for k, v in res_dict.items():
+            if k > self.thresh:
+                getRes.append(v)
+        return getRes
+
+
+# test the model out
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', default='config.yml', help='path to config.yml, default is the same dir as pipeline')
     parser.add_argument('--img', required=True, help='image path for running ocr on')
     parser.add_argument('--debug', action='store_true', help='whether to run debug')
     var = parser.parse_args()
-
-    image, detector, recognizer = prepare(var)
-    getText(image, detector, recognizer)
-    if var.debug:
-        calc_time(prepare)
-        calc_time(getText)
+    detector, recognizer = prepModel()
+    res, _ = getText(var.img, detector, recognizer)

@@ -13,9 +13,9 @@ import torch.optim as optim
 import yaml
 from torch.utils.data import DataLoader
 
-from model import CRNN
-from tools import dataset
-from tools import recog_utils as utils
+from ocr.model import CRNNet
+from ocr.tools import (AlignCollate, AttnLabelConverter, Averager, CTCLabelConverter, LMDBDataset, RandomSequentialSampler, ResizeNormalize,
+                       load_data)
 
 # load device for either `cuda` or `cpu`
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -46,15 +46,15 @@ with open(os.path.join(CONFIG['log_dir'], 'log_dataset.txt'), 'a') as dataset_lo
     dataset_log.write(DASHED + '\n')
     print(DASHED)
     # init dataset/loader
-    train_dataset = dataset.LMDBDataset(CONFIG, root=CONFIG['train_root'])
+    train_dataset = LMDBDataset(CONFIG, root=CONFIG['train_root'])
     print(f'dataset_root:{CONFIG["train_root"]}\nbatch_size:{CONFIG["batch_size"]}\n')
     dataset_log.write(f'dataset_root:{CONFIG["train_root"]}\nbatch_size:{CONFIG["batch_size"]}\n')
     dataset_log.close()
 if not CONFIG['random_sample']:
-    sampler = dataset.random_sequential_sampler(train_dataset, CONFIG['batch_size'])
+    sampler = RandomSequentialSampler(train_dataset, CONFIG['batch_size'])
 else:
     sampler = None
-collate_fn = dataset.align_collate(height=CONFIG['height'], width=CONFIG['width'], keep_ratio=CONFIG['keep_ratio'])
+collate_fn = AlignCollate(height=CONFIG['height'], width=CONFIG['width'], keep_ratio=CONFIG['keep_ratio'])
 train_loader = DataLoader(train_dataset,
                           batch_size=CONFIG['batch_size'],
                           shuffle=True,
@@ -62,19 +62,19 @@ train_loader = DataLoader(train_dataset,
                           num_workers=int(CONFIG['workers']),
                           collate_fn=collate_fn,
                           pin_memory=True)
-val_dataset = dataset.LMDBDataset(CONFIG, root=CONFIG['val_root'], transform=dataset.resize_normalize((100, 32)))
+val_dataset = LMDBDataset(CONFIG, root=CONFIG['val_root'], transform=ResizeNormalize((100, 32)))
 
 # setup fine tune
 with open(os.path.join(CONFIG['log_dir'], 'log_model.txt'), 'a') as f:
     CONFIG['num_classes'] = len(CONFIG['character']) + 1
     if CONFIG['prediction'] == 'CTC':
-        converter = utils.CTCLabelConverter(CONFIG['character'])
+        converter = CTCLabelConverter(CONFIG['character'])
     else:
-        converter = utils.AttnLabelConverter(CONFIG['character'])
+        converter = AttnLabelConverter(CONFIG['character'])
     CONFIG['num_classes'] = len(converter.character)
 
     # init model here
-    model = CRNN(CONFIG)
+    model = CRNNet(CONFIG)
     model_log = f'model input params:\nheight:{CONFIG["height"]}\nwidth:{CONFIG["width"]}\nfidicial points:{CONFIG["num_fiducial"]}\ninput channel:{CONFIG["input_channel"]}\noutput channel:{CONFIG["output_channel"]}\nhidden size:{CONFIG["hidden_size"]}\nnum class:{CONFIG["num_classes"]}\nbatch_max_len:{CONFIG["batch_max_len"]}\nmodel structures as follow:{CONFIG["transform"]}-{CONFIG["backbone"]}-{CONFIG["sequence"]}-{CONFIG["prediction"]}'
     print(model_log)
     f.write(model_log)
@@ -114,7 +114,7 @@ if CONFIG['prediction'] == 'CTC':
     loss_fn = torch.nn.CTCLoss(zero_infinity=True).to(device)
 else:
     loss_fn = torch.nn.CrossEntropyLoss(ignore_index=0).to(device)  # [GO] idx at 0
-avg_loss = utils.Averager()
+avg_loss = Averager()
 
 filtered_params, num_params = [], []
 for p in filter(lambda p: p.requires_grad, model.parameters()):
@@ -143,7 +143,7 @@ def evaluation(net, val_dataset, loss_fn, config=CONFIG):
     # evaluation_fn
     """
     args:
-        - net: CRNN model
+        - net: CRNNet model
         - val_dataset: dataset used for validation
         - loss_fn: loss function, either torch.nn.CTCLoss or torch.nn.CrossEntropyLoss
         - config: list parsed from config.yml
@@ -160,7 +160,7 @@ def evaluation(net, val_dataset, loss_fn, config=CONFIG):
     # norm_ed = 0
     len_data = 0
     infer_ = 0  # track infer time
-    avg_loss = utils.Averager()
+    avg_loss = Averager()
 
     # disable gradient when validating
     for p in net.parameters():
@@ -240,11 +240,11 @@ def evaluation(net, val_dataset, loss_fn, config=CONFIG):
 def train_batch(net, train_loader, loss_fn, optimizer, IMAGE=IMAGE, TEXT=TEXT, LENGTH=LENGTH):
     iters = iter(train_loader)
     img, text = iters.next()
-    dataset.load_data(IMAGE, img)
+    load_data(IMAGE, img)
     IMAGE = IMAGE.to(device)
     t, l = converter.encode(text, batch_max_len=CONFIG['batch_max_len'])
-    dataset.load_data(TEXT, t)
-    dataset.load_data(LENGTH, l)
+    load_data(TEXT, t)
+    load_data(LENGTH, l)
     batch_size = IMAGE.size(0)
 
     if CONFIG['prediction'] == 'CTC':

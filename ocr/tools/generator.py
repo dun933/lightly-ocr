@@ -8,7 +8,7 @@ import lmdb
 import numpy as np
 
 
-def check_img_valid(img_bin):
+def checkImgValid(img_bin):
     if img_bin is None:
         return False
     imgbuf = np.frombuffer(img_bin, dtype=np.uint8)
@@ -19,18 +19,13 @@ def check_img_valid(img_bin):
     return True
 
 
-def write_cache(env, cache):
+def writeCache(env, cache):
     with env.begin(write=True) as txn:
         for k, v in cache.items():
             txn.put(k, v)
 
 
-def anno_to_list(out='data/',
-                 root='/mnt/Vault/database/mjsynth/',
-                 l=[
-                     'annotation_test.txt', 'annotation_train.txt',
-                     'annotation_val.txt'
-                 ]):
+def anno2list(out='data/', root='/mnt/Vault/database/mjsynth/', l=['annotation_test.txt', 'annotation_train.txt', 'annotation_val.txt']):
     if os.path.exists(f'{out}/train_list.txt'):
         print('list has already been created, exit.')
         return 0
@@ -46,7 +41,7 @@ def anno_to_list(out='data/',
                 txt.write(f'{path} {label}\n')
 
 
-def generate_dataset(root, output_path, list_path, log_path, check_valid=True):
+def DatasetGenerator(root, output_path, list_path, log_path, check_valid=True):
     # creates lmdb dataset
     # root: based dir for mjsynth
     # image_path: train_lists.txt -> images, labels
@@ -69,12 +64,11 @@ def generate_dataset(root, output_path, list_path, log_path, check_valid=True):
             img_bin = f.read()
         if check_valid:
             try:
-                if not check_img_valid(img_bin):
+                if not checkImgValid(img_bin):
                     print(f'{impath} is not a valid image')
                     continue
             except Exception:
-                with open(os.path.join(log_path, 'error_image.txt'),
-                          'w') as log:
+                with open(os.path.join(log_path, 'error_image.txt'), 'w') as log:
                     log.write(f'{str(i)}th image: errored\n')
                 continue
 
@@ -84,24 +78,21 @@ def generate_dataset(root, output_path, list_path, log_path, check_valid=True):
         cache[label_key] = label.encode()
 
         if c % 1000 == 0:
-            write_cache(env, cache)
+            writeCache(env, cache)
             cache = {}
             print(f'written {c}/{num_samples}')
         c += 1
     num_samples = c - 1
     cache['num-samples'.encode()] = str(num_samples).encode()
-    write_cache(env, cache)
+    writeCache(env, cache)
     print(f'created dataset with {num_samples} samples')
 
 
 if __name__ == '__main__':
-    anno_to_list()
-    file_ = [
-        f for f in os.listdir('data')
-        if os.path.isfile(os.path.join('data', f))
-    ]
+    anno2list()
+    file_ = [f for f in os.listdir('data') if os.path.isfile(os.path.join('data', f))]
     for f in file_:
-        generate_dataset(root='/mnt/Vault/database/mjsynth',
+        DatasetGenerator(root='/mnt/Vault/database/mjsynth',
                          output_path=f'data/{f.split("_")[0]}',
                          list_path=os.path.join('data', f),
                          log_path='data/logs')
