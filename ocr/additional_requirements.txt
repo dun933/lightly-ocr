@@ -1,3 +1,0 @@
-torch
-opencv-contrib-python
-Polygon3

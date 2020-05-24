@@ -9,6 +9,7 @@ import yaml
 
 from net import CRAFT, CRNN
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'config.yml'), 'r') as f:
     CONFIG = yaml.safe_load(f)
 
@@ -46,11 +47,11 @@ def calc_time(fn=lambda x, *a, **kw: x(*a, **kw)):
 def prepModel(config=CONFIG):
     use_detector, use_recognizer = config['pipeline'].split('-')
     if use_detector == 'CRAFT':
-        detector = CRAFT()
+        detector = CRAFT(device=device)
     else:
         raise AssertionError(f'only supported CRAFT atm. got {use_detector} instead')
     if use_recognizer == 'CRNN':
-        recognizer = CRNN()
+        recognizer = CRNN(device=device)
     else:
         raise AssertionError(f'only supports either CRNN or MORAN. got {use_recognizer} instead')
     for p in [detector.model_path, recognizer.model_path]:

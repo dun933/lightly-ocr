@@ -35,7 +35,7 @@ def copy_state_dict(state_dict):
 
 
 class CRAFT(Placeholder):
-    def __init__(self, state_dict='CRAFT.pth'):
+    def __init__(self, state_dict='CRAFT.pth', device=device):
         super().__init__()
         self.model_path = os.path.join(MODEL_PATH, state_dict)
         self.net = VGG_UNet().to(device)
@@ -97,7 +97,7 @@ class CRAFT(Placeholder):
 
 
 class CRNN(Placeholder):
-    def __init__(self, state_dict='CRNN.pth'):
+    def __init__(self, state_dict='CRNN.pth', device=device):
         super().__init__()
         self.alphabet = '0123456789abcdefghijklmnopqrstuvwxyz'
         self.model_path = os.path.join(MODEL_PATH, state_dict)

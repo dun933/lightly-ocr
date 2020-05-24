@@ -1,5 +1,6 @@
 import logging
 import os
+import random
 
 import flask
 from flask import Flask, jsonify, request
@@ -55,5 +56,6 @@ def parseText():
 
 if __name__ == '__main__':
     logging.info('Starting server...')
+    ranPort = random.randint(5000, 5050)
     m = serveModel('config.yml', thresh=0.6)
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=ranPort)

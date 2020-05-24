@@ -1,21 +1,18 @@
 version: 2.1
-
-orbs:
-  python: circleci/python@0.2.1
-
 jobs:
-  build-and-test:
-    executor: python/default
-    steps:
-      - checkout
-      - python/load-cache
-      - python/install-deps
-      - python/save-cache
-      - run:
-          command: ./manage.py test
-          name: Test
+  build_and_push:
+    docker:
+      - image: google/cloud-sdk
+    environment:
+      - GOOGLE_PROJECT_ID: "lightly-backend"
+      - GOOGLE_COMPUTE_ZONE: ""
+      - GOOGLE_CLUSTER_NAME: ""
 
 workflows:
-  main:
+  version: 2.1
+  build_deploy:
     jobs:
-      - build-and-test
+      - build_and_push:
+          filters:
+            branches:
+              only: master

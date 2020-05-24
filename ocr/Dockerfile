@@ -1,14 +1,10 @@
-FROM pytorch/pytorch:latest
+FROM anibali/pytorch:1.5.0-cuda10.2
 FROM python:3.7
-
 MAINTAINER Aaron Pham <aaronpham0103@gmail.com>
 
-COPY requirements.txt requirements.txt 
-
-RUN apt-get update && apt-get install -y \
+RUN apt-get update \
+    && apt-get install -y \
         build-essential \
-        libffi-dev \
-        python-dev \
         cmake \
         git \
         wget \
@@ -25,10 +21,9 @@ RUN apt-get update && apt-get install -y \
         libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
+COPY requirements.txt requirements.txt 
 RUN pip install -r requirements.txt
 
-# refers to https://github.com/janza/docker-python3-opencv/blob/master/Dockerfile
-RUN pip install numpy
 WORKDIR /
 ENV OPENCV_VERSION="4.1.1"
 RUN wget https://github.com/opencv/opencv/archive/${OPENCV_VERSION}.zip \
@@ -59,7 +54,6 @@ RUN ln -s \
   /usr/local/python/cv2/python-3.7/cv2.cpython-37m-x86_64-linux-gnu.so \
   /usr/local/lib/python3.7/site-packages/cv2.so
 
-
 # folders
 COPY modules/ modules/
 COPY save_models/ save_models/
@@ -73,5 +67,5 @@ COPY pipeline.py pipeline.py
 COPY server.py server.py
 
 # expose port to run the server
-EXPOSE 5000
+EXPOSE 5000-5050
 CMD ["python3", "server.py"]

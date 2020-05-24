@@ -26,7 +26,9 @@ OCR tasks can be found in `/ocr`, network-related can be found in `/ingress`
 - built with `pytorch`
 
 ## instruction.
-- build local docker image with `sudo docker build -t aar0npham/lightly-ocr:latest ocr`
+- check [docker](docker/) to install version of your choices
+- use `docker-compose.yml` while development, gpu version requires [nvidia-docker](https://github.com/NVIDIA/nvidia-docker) → would still build both version
+- build local docker image with `(sudo) docker build -f [PATH of Dockerfile] -t aar0npham/lightly-ocr:latest ocr`
 - if you want to use MORAN please refer to [tree@66171c8058](https://github.com/aar0npham/lightly-ocr/tree/66171c80586537ae915938b2e92eb83c474cda79)
 - Run `bash scripts/download_model.sh` to get the pretrained model
 - to test the model do:
@@ -83,6 +85,7 @@ overview in `src` as follows:
 
 ## todo.
 
+* [ ] autogenerate Dockerfile? → __features__
 * [ ] add docstring, fixes `too-many-locals`
 * [ ] [ingress](ingress/) controller
 * [ ] custom ops for `torch.nn.functional.grid_sample`, refers to this [issues](https://github.com/onnx/onnx/issues/654). Notes and fixes are in [here](ocr/torch2onnx.py)
