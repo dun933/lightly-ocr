@@ -149,3 +149,4 @@ data/
 # ignore unecessary init file
 ocr/test/__init__.py
 ocr/train/__init__.py
+!*requirements.txt
