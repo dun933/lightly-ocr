@@ -9,7 +9,8 @@ import yaml
 
 from net import CRAFT, CRNN
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+# Constant
+DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'config.yml'), 'r') as f:
     CONFIG = yaml.safe_load(f)
 
@@ -21,7 +22,7 @@ def remove(key, re='module'):
     return key
 
 
-def rename_state_dict(source, fn=remove, target=None):
+def renameStateDict(source, fn=remove, target=None):
     # target is the new path to save source, default: write back to source
     # fn: function to transfer new key
     if target is None:
@@ -37,28 +38,28 @@ def rename_state_dict(source, fn=remove, target=None):
     torch.save(res, target)
 
 
-def calc_time(fn=lambda x, *a, **kw: x(*a, **kw)):
+def calcTime(fn=lambda x, *a, **kw: x(*a, **kw)):
     start = time.time()
     fn()
     return f'{fn} took {time.time()-start:.3f}s'
 
 
 # begin pipeline
-def prepModel(config=CONFIG):
+def prepModel(config=CONFIG, rename=False, docker=False):
+    device = DEVICE if not docker else 'cpu'
     use_detector, use_recognizer = config['pipeline'].split('-')
     if use_detector == 'CRAFT':
-        detector = CRAFT(device=device)
+        detector = CRAFT(device=device, docker=docker)
     else:
         raise AssertionError(f'only supported CRAFT atm. got {use_detector} instead')
     if use_recognizer == 'CRNN':
-        recognizer = CRNN(device=device)
+        recognizer = CRNN(device=device, docker=docker)
     else:
         raise AssertionError(f'only supports either CRNN or MORAN. got {use_recognizer} instead')
-    for p in [detector.model_path, recognizer.model_path]:
-        rename_state_dict(p)
+    if rename:
+        for p in [detector.model_path, recognizer.model_path]:
+            renameStateDict(p)
     # load from pretrained
-    detector.load()
-    recognizer.load()
     return detector, recognizer
 
 
@@ -88,8 +89,9 @@ def getText(image, detector, recognizer, write=True):
     return res, res_dict
 
 
-class serveModel():
-    def __init__(self, config_file: str, thresh: int):
+class serveModel:
+    def __init__(self, config_file: str, thresh: int, docker: bool):
+        self.docker = docker
         self.config_file = config_file
         self.loadConfig()
         self.thresh = thresh
@@ -101,7 +103,7 @@ class serveModel():
             self.config = yaml.safe_load(cf)
 
     def loadModel(self):
-        self.detector, self.recognizer = prepModel(self.config)
+        self.detector, self.recognizer = prepModel(self.config, docker=self.docker)
 
     def predict(self, inputs: str):
         getRes = []
@@ -116,8 +118,10 @@ class serveModel():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', default='config.yml', help='path to config.yml, default is the same dir as pipeline')
+    parser.add_argument('--thresh', default=0.7, help='threshold for confidence score')
     parser.add_argument('--img', required=True, help='image path for running ocr on')
     parser.add_argument('--debug', action='store_true', help='whether to run debug')
-    var = parser.parse_args()
-    used_detector, used_recognizer = prepModel()
-    result, _ = getText(var.img, used_detector, used_recognizer)
+    opt = parser.parse_args()
+    docker = bool(torch.cuda.is_available())
+    model = serveModel(config_file=opt.config, thresh=opt.thresh, docker=docker)
+    result = model.predict(opt.img)

@@ -8,9 +8,10 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # TODO: parse dynamic tensor with torch.jit.trace #L20,L29,L30
 class Attention(nn.Module):
-    def __init__(self, nIn, nHidden, num_classes):
+    def __init__(self, nIn, nHidden, num_classes, device='cuda'):
         super(Attention, self).__init__()
-        self.attention_cell = AttentionCell(nIn, nHidden, num_classes)
+        self.device = device
+        self.attention_cell = AttentionCell(nIn, nHidden, num_classes, device=device)
         self.nHidden = nHidden
         self.num_classes = num_classes
         self.generator = nn.Linear(nHidden, num_classes)
@@ -18,8 +19,8 @@ class Attention(nn.Module):
     def char2onehot(self, input_char, onehot_dim=38):
         input_char = input_char.unsqueeze(1)
         batch_size = input_char.size(0)
-        onehot = torch.FloatTensor(batch_size, onehot_dim).zero_().to(device)
-        return onehot.scatter_(1, input_char, 1)
+        onehot = torch.FloatTensor(batch_size, onehot_dim).zero_().to(self.device)
+        return onehot.scatter_(1, input_char, 1).to(self.device)
 
     def forward(self, inputs, text, training=True, batch_max_len=25):
         # inputs is the hidden state of lstm [batch, num_steps, num_classes]
@@ -27,8 +28,9 @@ class Attention(nn.Module):
         # return probability distribution of each step [batch_size, num_steps, num_classes]
         batch_size = inputs.size(0)
         num_steps = batch_max_len + 1
-        h = torch.FloatTensor(batch_size, num_steps, self.nHidden).fill_(0).to(device)
-        nh = (torch.FloatTensor(batch_size, self.nHidden).fill_(0).to(device), torch.FloatTensor(batch_size, self.nHidden).fill_(0).to(device))
+        h = torch.FloatTensor(batch_size, num_steps, self.nHidden).fill_(0).to(self.device)
+        nh = (torch.FloatTensor(batch_size, self.nHidden).fill_(0).to(self.device), torch.FloatTensor(batch_size,
+                                                                                                      self.nHidden).fill_(0).to(self.device))
         if training:
             for i in range(num_steps):
                 onehotChar = self.char2onehot(text[:, i], onehot_dim=self.num_classes)
@@ -37,8 +39,8 @@ class Attention(nn.Module):
                 h[:, i, :] = nh[0]  # -> lstm hidden index (0:hidden, 1:cell)
             probs = self.generator(h)
         else:
-            targets = torch.LongTensor(batch_size).fill_(0).to(device)
-            probs = torch.FloatTensor(batch_size, num_steps, self.num_classes).fill_(0).to(device)
+            targets = torch.LongTensor(batch_size).fill_(0).to(self.device)
+            probs = torch.FloatTensor(batch_size, num_steps, self.num_classes).fill_(0).to(self.device)
 
             for i in range(num_steps):
                 onehotChar = self.char2onehot(targets, onehot_dim=self.num_classes)
@@ -53,8 +55,9 @@ class Attention(nn.Module):
 
 class AttentionCell(nn.Module):
     # TODO: Fixes batch_first in LSTM to fix foward() difference when processing i2h
-    def __init__(self, nIn, nHidden, num_embeddings):
+    def __init__(self, nIn, nHidden, num_embeddings, device='cuda'):
         super(AttentionCell, self).__init__()
+        self.device = device
         self.nHidden = nHidden
         self.i2h = nn.Linear(nIn, nHidden, bias=False)
         self.h2h = nn.Linear(nHidden, nHidden)
@@ -63,14 +66,16 @@ class AttentionCell(nn.Module):
 
     def forward(self, h, feats, cur_embed, test=False):
         # [b, num_steps, num_channels] -> [b, num_steps, nHidden]
-        feats_ = self.i2h(feats)
-        h_ = self.h2h(h[0]).unsqueeze(0)
-        emit = self.score(torch.tanh(feats_ + h_))
+        mh = dict()
+        feats_ = self.i2h(feats.to(self.device))
+        h_ = self.h2h(h[0].to(self.device)).unsqueeze(0)
+        emit = self.score(torch.tanh(feats_ + h_)).to(self.device)
         alpha = F.softmax(emit, dim=1)  # nT x nB
-        # with batch_first -> CRNN
         # context : batch x num_channels
-        context = torch.bmm(alpha.permute(0, 2, 1), feats).squeeze(1)
+        context = torch.bmm(alpha.permute(0, 2, 1), feats).squeeze(1).to(self.device)
         # batch x ( num_channels + num_embeddings )
-        concat = torch.cat([context, cur_embed], 1)
-        nh = self.rnn(concat, h)
+        concat = torch.cat([context, cur_embed.to(self.device)], 1)
+        for i, hs in enumerate(h):
+            mh[i] = hs.to(self.device)
+        nh = self.rnn(concat, tuple(v for _, v in mh.items()))
         return nh, alpha

@@ -26,9 +26,7 @@ OCR tasks can be found in `/ocr`, network-related can be found in `/ingress`
 - built with `pytorch`
 
 ## instruction.
-- check [docker](docker/) to install version of your choices
-- use `docker-compose.yml` while development, gpu version requires [nvidia-docker](https://github.com/NVIDIA/nvidia-docker) → would still build both version
-- build local docker image with `(sudo) docker build -f [PATH of Dockerfile] -t aar0npham/lightly-ocr:latest ocr`
+- build local docker image with `(sudo) docker build -f [PATH of Dockerfile] -t aar0npham/lightly-ocr:latest ocr`, to run do `docker run [--gpus=all] aar0npham/lightly-ocr:latest`, for `--gpus=all` requires [nvidia-docker](https://github.com/NVIDIA/nvidia-docker)
 - if you want to use MORAN please refer to [tree@66171c8058](https://github.com/aar0npham/lightly-ocr/tree/66171c80586537ae915938b2e92eb83c474cda79)
 - Run `bash scripts/download_model.sh` to get the pretrained model
 - to test the model do:

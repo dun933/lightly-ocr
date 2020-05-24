@@ -63,7 +63,7 @@ class VGG_UNet(nn.Module):
 
 class CRNNet(nn.Module):
     # TPS - ResNet - biLSTM - Attn/CTC
-    def __init__(self, config):
+    def __init__(self, config, device):
         super(CRNNet, self).__init__()
         self.config = config
         self.stages = {'Trans': config['transform'], 'Feat': config['backbone'], 'Seq': config['sequence'], 'Pred': config['prediction']}
@@ -72,7 +72,8 @@ class CRNNet(nn.Module):
             self.Transformation = TPS_SpatialTransformerNetwork(F=config['num_fiducial'],
                                                                 im_size=(config['height'], config['width']),
                                                                 im_rectified=(config['height'], config['width']),
-                                                                num_channels=config['input_channel'])
+                                                                num_channels=config['input_channel'],
+                                                                device=device)
         else:
             print('No tps specified')
         if config['backbone'] == 'ResNet':
@@ -93,7 +94,7 @@ class CRNNet(nn.Module):
         if config['prediction'] == 'CTC':
             self.Prediction = nn.Linear(self.SequenceModeling_output, config['num_classes'])
         elif config['prediction'] == 'Attention':
-            self.Prediction = Attention(self.SequenceModeling_output, config['hidden_size'], config['num_classes'])
+            self.Prediction = Attention(self.SequenceModeling_output, config['hidden_size'], config['num_classes'], device=device)
         else:
             raise Exception('prediction needs to be either CTC or attention-based sequence prediction')
 
@@ -117,9 +118,14 @@ class CRNNet(nn.Module):
 
 class Placeholder(ABC):
     def __init__(self, state_dict=None):
+        self.net = None
         self.cuda = False
         self.converter = None
         self.transformer = None
+        self.device = None
+
+    def toContainer(self, docker=False):
+        pass
 
     def load(self):
         pass

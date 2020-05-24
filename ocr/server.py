@@ -1,3 +1,4 @@
+import argparse
 import logging
 import os
 import random
@@ -22,11 +23,11 @@ def isAllowed(filename):
 
 def getPath(r):
     if 'file' not in r.file:
-        logging.warn('does not receive an image')
+        logging.warning('does not receive an image')
         return jsonify({'status': 'noInput'}), 403
     file = r.file['file']
     if file.filename == '':
-        logging.warn('no input received')
+        logging.warning('no input received')
         return jsonify({'status': 'emptyInput'}), 403
     if file and isAllowed(file.filename):
         filename = secure_filename(file.filename)
@@ -57,5 +58,10 @@ def parseText():
 if __name__ == '__main__':
     logging.info('Starting server...')
     ranPort = random.randint(5000, 5050)
-    m = serveModel('config.yml', thresh=0.6)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--docker', action='store_true', help='allows to run on cpu for docker container')
+    parser.add_argument('--config', default='config.yml', help='path to config.yml, default is the same dir as pipeline')
+    parser.add_argument('--thresh', default=0.7, help='threshold for confidence score')
+    opt = parser.parse_args()
+    m = serveModel(config_file=opt.config, thresh=opt.thresh, docker=opt.docker)
     app.run(host='0.0.0.0', port=ranPort)
