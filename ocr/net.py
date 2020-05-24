@@ -1,5 +1,4 @@
 import os
-from abc import ABC
 from collections import OrderedDict
 from functools import cmp_to_key
 
@@ -12,8 +11,8 @@ import torch.nn.functional as F
 import yaml
 from PIL import Image
 
-from model import CRNNet, VGG_UNet
-from tools import (AttnLabelConverter, CTCLabelConverter, ResizeNormalize, adjustResultCoordinates, getDetBoxes, normalizeMeanVariance,
+from model import CRNNet, Placeholder, VGG_UNet
+from tools import (AttnLabelConverter, CTCLabelConverter, ResizeNormalize, adjustResultCoordinates, compare_rects, getDetBoxes, normalizeMeanVariance,
                    resizeAspectRatio)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -35,34 +34,19 @@ def copy_state_dict(state_dict):
     return new_state_dict
 
 
-class Detector(ABC):
-    def load(self):
-        pass
-
-    def process(self, image):
-        pass
-
-
-class Recognizer(ABC):
-    def load(self):
-        pass
-
-    def process(self, image):
-        pass
-
-
-class CRAFT(Detector):
-    model_path = os.path.join(MODEL_PATH, 'CRAFT.pth')
-    cuda = False
-    canvas_size = 1280
-    magnify_ratio = 1.5
-    text_threshold = 0.7
-    link_threshold = 0.4
-    low_text_score = 0.4
-    enable_polygon = False
-
-    def load(self):
+class CRAFT(Placeholder):
+    def __init__(self, state_dict='CRAFT.pth'):
+        super().__init__()
+        self.model_path = os.path.join(MODEL_PATH, state_dict)
         self.net = VGG_UNet().to(device)
+        self.canvas_size = 1280
+        self.magnify_ratio = 1.5
+        self.text_threshold = 0.7
+        self.link_threshold = 0.4
+        self.low_text_score = 0.4
+        self.enable_polygon = False
+
+    def load(self):
         if torch.cuda.is_available():
             self.cuda = True
             self.net.load_state_dict(copy_state_dict(torch.load(self.model_path)))
@@ -103,28 +87,6 @@ class CRAFT(Detector):
                 y1, x1 = np.max(poly, axis=0)
                 rects.append([x0, y0, x1, y1])
 
-            def compare_rects(first_rect, second_rect):
-                fx, fy, fxi, fyi = first_rect
-                sx, sy, sxi, syi = second_rect
-                if fxi <= sx:
-                    return -1  # completely on above
-                elif sxi <= fx:
-                    return 1  # completely on below
-                elif fyi <= fy:
-                    return -1  # completely on left
-                elif sxi <= sx:
-                    return 1  # completely on right
-                elif fy != sy:
-                    return -1 if fy < sy else 1  # starts on more left
-                elif fx != sx:
-                    return -1 if fx < sx else 1  # top most when starts equally
-                elif fyi != syi:
-                    return -1 if fyi < syi else 1  # have least width
-                elif fxi != sxi:
-                    return -1 if fxi < sxi else 1  # have laast height
-                else:
-                    return 0  # same
-
             roi = list()  # extract ROI
             for rect in sorted(rects, key=cmp_to_key(compare_rects)):
                 x0, y0, x1, y1 = rect
@@ -134,14 +96,14 @@ class CRAFT(Detector):
         return roi
 
 
-class CRNN(Recognizer):
-    alphabet = '0123456789abcdefghijklmnopqrstuvwxyz'
-    model_path = os.path.join(MODEL_PATH, 'CRNN.pth')
-    net = CRNNet(CONFIG).to(device)
-    config = CONFIG
-    cuda = False
-    converter = None
-    transformer = None
+class CRNN(Placeholder):
+    def __init__(self, state_dict='CRNN.pth'):
+        super().__init__()
+        self.alphabet = '0123456789abcdefghijklmnopqrstuvwxyz'
+        self.model_path = os.path.join(MODEL_PATH, state_dict)
+        self.net = CRNNet(CONFIG).to(device)
+        self.config = CONFIG
+        self.res = dict()
 
     def load(self):
         if torch.cuda.is_available():
@@ -166,18 +128,17 @@ class CRNN(Recognizer):
         self.net.eval()
 
     def process(self, image):
-        batch_size = 1  # since we only process one image
-        res = dict()
+        # since we only process one image -> batch_size=1
         image = Image.fromarray(image).convert('L')
         # print(image.size)
         image = self.transformer(image).to(device)
         image = image.view(1, *image.size()).to(device)
-        len_pred = torch.IntTensor([self.config['batch_max_len'] * batch_size]).to(device)
-        text_pred = torch.LongTensor(batch_size, self.config['batch_max_len'] + 1).fill_(0).to(device)
+        len_pred = torch.IntTensor([self.config['batch_max_len']]).to(device)
+        text_pred = torch.LongTensor(1, self.config['batch_max_len'] + 1).fill_(0).to(device)
 
         if self.config['prediction'] == 'CTC':
             preds = self.net(image, text=text_pred)
-            preds_size = torch.IntTensor([preds.size(1)] * batch_size)
+            preds_size = torch.IntTensor([preds.size(1)])
             _, preds_idx = preds.max(2)
             preds_idx = preds_idx.view(-1)
             raw_pred = self.converter.decode(preds_idx.data, preds_size.data)
@@ -201,7 +162,7 @@ class CRNN(Recognizer):
                         print('Not found EOS token, continue.\n(potential error)')
                         continue  # when there isn't a EOS token
                 confidence = max_prob.cumprod(dim=0)[-1]
-                res[confidence] = raw_pred
+                self.res[confidence] = raw_pred
                 f.write(f'results: {raw_pred}\nconfidence score: {confidence:.4f}\n')
                 print(f'results: {raw_pred}\nconfidence score: {confidence:.4f}\n')
-        return raw_pred, res
+        return raw_pred, self.res

@@ -1,0 +1,16 @@
+setuptools
+matplotlib
+torchvision
+scikit_image
+numpy
+scipy
+flask
+nltk
+six
+colour
+Pillow
+PyYAML
+scikit-image
+onnx
+onnxruntime-gpu
+lmdb

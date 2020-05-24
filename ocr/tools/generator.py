@@ -3,7 +3,6 @@ import os
 import sys
 
 import cv2
-import fire
 import lmdb
 import numpy as np
 

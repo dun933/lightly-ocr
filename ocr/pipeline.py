@@ -14,14 +14,13 @@ with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'config.yml'
 
 
 # remove module.* on model_save
-def rename(key, rename='module'):
-    if rename in key.split('.'):
-        return key[len(rename) + 1:]
-    else:
-        return key
+def remove(key, re='module'):
+    if re in key.split('.'):
+        key = key[len(re) + 1:]
+    return key
 
 
-def rename_state_dict(source, fn=rename, target=None):
+def rename_state_dict(source, fn=remove, target=None):
     # target is the new path to save source, default: write back to source
     # fn: function to transfer new key
     if target is None:
@@ -54,8 +53,7 @@ def prepModel(config=CONFIG):
         recognizer = CRNN()
     else:
         raise AssertionError(f'only supports either CRNN or MORAN. got {use_recognizer} instead')
-    mpaths = [detector.model_path, recognizer.model_path]
-    for p in mpaths:
+    for p in [detector.model_path, recognizer.model_path]:
         rename_state_dict(p)
     # load from pretrained
     detector.load()
@@ -78,14 +76,13 @@ def getText(image, detector, recognizer, write=True):
                 text, res_dict = recognizer.process(gray)
             else:
                 raise ValueError(f'using either CRNN or MORAN, got {use_recognizer} instead')
-                break
             res.append(text)
     if write:
-        with open(os.path.join(os.path.dirname(os.path.relpath(__file__)), 'test', 'results.txt'), 'w') as f:
+        with open(os.path.join(os.path.dirname(os.path.relpath(__file__)), 'test', 'results.txt'), 'w') as test_result:
             for i in res:
-                f.write(f'prediction: {i}\n')
-            print(f'wrote results to {f.name}')
-            f.close()
+                test_result.write(f'prediction: {i}\n')
+            print(f'wrote results to {test_result.name}')
+            test_result.close()
     torch.cuda.empty_cache()
     return res, res_dict
 
@@ -99,8 +96,8 @@ class serveModel():
         self.loadModel()
 
     def loadConfig(self):
-        with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), self.config_file), 'r') as f:
-            self.config = yaml.safe_load(f)
+        with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), self.config_file), 'r') as cf:
+            self.config = yaml.safe_load(cf)
 
     def loadModel(self):
         self.detector, self.recognizer = prepModel(self.config)
@@ -121,5 +118,5 @@ if __name__ == '__main__':
     parser.add_argument('--img', required=True, help='image path for running ocr on')
     parser.add_argument('--debug', action='store_true', help='whether to run debug')
     var = parser.parse_args()
-    detector, recognizer = prepModel()
-    res, _ = getText(var.img, detector, recognizer)
+    used_detector, used_recognizer = prepModel()
+    result, _ = getText(var.img, used_detector, used_recognizer)

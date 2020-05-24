@@ -19,18 +19,11 @@ def isAllowed(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED
 
 
-@app.route('/', methods=['GET'])
-def isOnline():
-    logging.info('ping received')
-    return jsonify({'status': 'online'}), 200
-
-
-@app.route('/api', methods=['POST'])
-def parseText():
-    if 'file' not in request.file:
+def getPath(r):
+    if 'file' not in r.file:
         logging.warn('does not receive an image')
         return jsonify({'status': 'noInput'}), 403
-    file = request.file['file']
+    file = r.file['file']
     if file.filename == '':
         logging.warn('no input received')
         return jsonify({'status': 'emptyInput'}), 403
@@ -39,8 +32,25 @@ def parseText():
         fpath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(fpath)
         logging.info(f'got an inputs, saved at {fpath}')
-        results = m.predict(fpath)
-        return jsonify({'status': 'OK', 'results': {k: v for k, v in enumerate(results)}}), 200
+        return fpath
+    else:
+        logging.error(f'file not accepted, got {file}')
+        return jsonify({'status': 'badInput'}), 404
+
+
+@app.route('/', methods=['GET'])
+def isOnline():
+    logging.info('ping received')
+    return jsonify({'status': 'online'}), 200
+
+
+# TODO: configure model to run onnx file
+# points towards api for inference
+@app.route('/api', methods=['POST'])
+def parseText():
+    fpath = getPath(request)
+    results = m.predict(fpath)
+    return jsonify({'status': 'OK', 'results': {k: v for k, v in enumerate(results)}}), 200
 
 
 if __name__ == '__main__':

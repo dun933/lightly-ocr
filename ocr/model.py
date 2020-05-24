@@ -1,6 +1,7 @@
+from abc import ABC
+
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from modules import (Attention, BidirectionalLSTM, ResNet_FeatureExtractor, TPS_SpatialTransformerNetwork, UpConv, init_weights, vgg16_bn)
 
@@ -43,15 +44,15 @@ class VGG_UNet(nn.Module):
         y = torch.cat([sources[0], sources[1]], dim=1)
         y = self.upconv1(y)
 
-        y = F.interpolate(y, size=sources[2].size()[2:], mode='bilinear', align_corners=False)
+        y = nn.functional.interpolate(y, size=sources[2].size()[2:], mode='bilinear', align_corners=False)
         y = torch.cat([y, sources[2]], dim=1)
         y = self.upconv2(y)
 
-        y = F.interpolate(y, size=sources[3].size()[2:], mode='bilinear', align_corners=False)
+        y = nn.functional.interpolate(y, size=sources[3].size()[2:], mode='bilinear', align_corners=False)
         y = torch.cat([y, sources[3]], dim=1)
         y = self.upconv3(y)
 
-        y = F.interpolate(y, size=sources[4].size()[2:], mode='bilinear', align_corners=False)
+        y = nn.functional.interpolate(y, size=sources[4].size()[2:], mode='bilinear', align_corners=False)
         y = torch.cat([y, sources[4]], dim=1)
         feature = self.upconv4(y)
 
@@ -112,3 +113,16 @@ class CRNNet(nn.Module):
             prediction = self.Prediction(contextual_feature.contiguous(), text, training, batch_max_len=self.config['batch_max_len'])
 
         return prediction
+
+
+class Placeholder(ABC):
+    def __init__(self, state_dict=None):
+        self.cuda = False
+        self.converter = None
+        self.transformer = None
+
+    def load(self):
+        pass
+
+    def process(self, image):
+        pass

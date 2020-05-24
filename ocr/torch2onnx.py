@@ -4,7 +4,7 @@ import sys
 import cv2
 import numpy as np
 import onnx
-import onnxruntime
+import onnxruntime as ort
 import torch
 import torch.nn as nn
 import torch.onnx
@@ -20,51 +20,46 @@ det, rec = config['pipeline'].split('-')
 FUNCTION = {'CRAFT': CRAFT, 'CRNN': CRNN}
 
 
+# TODO: issues at nn.functional.grid_sample as it is not supported ,yet.
 def torch2onnx(model_name, target_root=config['onnx_path'], debug=False):
-    print(f'processing {model_name}')
-    batch_size = 1
-    lname = tuple()
+    print(f'processing {model_name}...')
     if not os.path.exists(os.path.join(target_root, f'{model_name}.onnx')):
-        assert model_name in ['CRAFT', 'CRNN', 'MORANv2'], f'supports CRAFT, CRNN, MORANv2, got {model_name} instead, check `config.yml`'
+        assert model_name in [
+            'CRAFT',
+            'CRNN',
+        ], f'supports CRAFT, CRNN, got {model_name} instead, check `config.yml`'
         model = FUNCTION[f'{model_name}']()
         model.load()
         ocr = model.net
         converter = model.converter
         num_channels = 3 if model_name == 'CRAFT' else 1
         # dummy inputs
-        dx = torch.randn(batch_size, num_channels, 244, 244, requires_grad=True).to(device)
+        inputs = torch.randn(1, num_channels, 244, 244, requires_grad=True).to(device)
         if model_name == 'CRAFT':
-            outputs = ocr(dx)
-        elif model_name == 'CRNN':
-            text_pred = torch.LongTensor(batch_size, config['batch_max_len'] + 1).fill_(0).to(device)
-            lname = (dx, text_pred)
-            if config['prediction'] == 'Attention':
-                outputs = ocr(dx, text_pred, training=False)
-            else:
-                outputs = ocr(dx, text_pred)
+            lname = (inputs)
+            outputs = ocr(inputs)
         else:
-            max_iter = 20
-            text = torch.LongTensor(1 * 5)
-            length = torch.IntTensor(1)
-            t, l = converter.encode('0' * max_iter)
-            text.resize_(t.size()).copy_(t)
-            length.resize_(l.size()).copy_(l)
-            lname = (dx, length, text, text)
-            outputs = ocr(dx, length, text, text, test=True, debug=True)
+            text_pred = torch.LongTensor(1, config['batch_max_len'] + 1).fill_(0).to(device)
+            lname = (inputs, text_pred)
+            if config['prediction'] == 'Attention':
+                outputs = ocr(inputs, text_pred, training=False)
+            else:
+                outputs = ocr(inputs, text_pred)
         # yapf: disable
         torch.onnx.export(ocr, lname, os.path.join(target_root, f'{model_name}.onnx'), export_params=True, verbose=True,
                           opset_version=11, do_constant_folding=True, input_names=['inputs'], output_names=['outputs'])
         # yapf: enable
         if debug:
-            onnx_model = onnx.load(os.path.join(target_root), f'{model_name}.onnx')
+            onnx_model = onnx.load(os.path.join(target_root, f'{model_name}.onnx'))
             onnx.checker.check_model(onnx_model)
-            onnx.helper.printable_graph(onnx_model)
+            # onnx.helper.printable_graph(onnx_model.graph)
+        print(f'finished processing {model_name}.')
     else:
         print(f'{model_name}.onnx already exists, continue.')
 
 
 def inference(impath, onnx_path, mode='detect'):
-    sess = onnxruntime.InferenceSession(onnx_path)
+    sess = ort.InferenceSession(onnx_path)
     image = cv2.imread(impath)
 
 
@@ -78,6 +73,6 @@ def to_numpy(tensor):
 
 # traced.save('converted_models/CRNN.pt')
 
-# if __name__=='__main__':
-#     for k, _ in FUNCTION.items():
-#         torch2onnx(k, debug=True)
+if __name__ == '__main__':
+    for k, _ in FUNCTION.items():
+        torch2onnx(k)

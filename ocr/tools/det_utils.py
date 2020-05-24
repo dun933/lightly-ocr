@@ -4,6 +4,28 @@ import cv2
 import numpy as np
 
 
+# compare rectified boxes
+def compare_rects(first_rect, second_rect):
+    if first_rect[2] <= second_rect[0]:
+        return -1  # completely on above
+    elif second_rect[2] <= first_rect[0]:
+        return 1  # completely on below
+    elif first_rect[3] <= first_rect[1]:
+        return -1  # completely on left
+    elif second_rect[2] <= second_rect[0]:
+        return 1  # completely on right
+    elif first_rect[1] != second_rect[1]:
+        return -1 if first_rect[1] < second_rect[1] else 1  # starts on more left
+    elif first_rect[0] != second_rect[0]:
+        return -1 if first_rect[0] < second_rect[0] else 1  # top most when starts equally
+    elif first_rect[3] != second_rect[3]:
+        return -1 if first_rect[3] < second_rect[3] else 1  # have least width
+    elif first_rect[2] != second_rect[2]:
+        return -1 if first_rect[2] < second_rect[2] else 1  # have laast height
+    else:
+        return 0  # same
+
+
 # unwarp corodinates
 def warp_coord(Minv, pt):
     out = np.matmul(Minv, (pt[0], pt[1], 1))

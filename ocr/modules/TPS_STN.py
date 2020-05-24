@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # direct ported from https://github.com/clovaai/deep-text-recognition-benchmark/blob/master/modules/transformation.py
@@ -25,12 +24,9 @@ class TPS_SpatialTransformerNetwork(nn.Module):
         build_P_prime = self.GridGenerator.build_P_prime(outputs)  # batch_size x n (= I_r_width x I_r_height) x 2
         build_P_prime_reshape = build_P_prime.reshape([build_P_prime.size(0), self.im_rectified[0], self.im_rectified[1], 2])
 
-        if torch.__version__ > "1.2.0":
-            inputs_r = F.grid_sample(inputs, build_P_prime_reshape, padding_mode='border', align_corners=True)
-        else:
-            inputs_r = F.grid_sample(inputs, build_P_prime_reshape, padding_mode='border')
+        outputs = nn.functional.grid_sample(inputs, grid=build_P_prime_reshape, padding_mode='border', align_corners=True)
 
-        return inputs_r
+        return outputs
 
 
 class LocalizationNetwork(nn.Module):
@@ -91,8 +87,8 @@ class GridGenerator(nn.Module):
         self.C = self._build_C(self.F)  # F x 2
         self.P = self._build_P(self.I_r_width, self.I_r_height)
         ## for multi-gpu, you need register buffer
-        self.register_buffer("inv_delta_C", torch.tensor(self._build_inv_delta_C(self.F, self.C)).float())  # F+3 x F+3
-        self.register_buffer("P_hat", torch.tensor(self._build_P_hat(self.F, self.C, self.P)).float())  # n x F+3
+        self.register_buffer("inv_delta_C", torch.Tensor(self._build_inv_delta_C(self.F, self.C)).float())  # F+3 x F+3
+        self.register_buffer("P_hat", torch.Tensor(self._build_P_hat(self.F, self.C, self.P)).float())  # n x F+3
         ## for fine-tuning with different image width, you may use below instead of self.register_buffer
         # self.inv_delta_C = torch.Tensor(self._build_inv_delta_C(self.F, self.C)).float().cuda()  # F+3 x F+3
         # self.P_hat = torch.Tensor(self._build_P_hat(self.F, self.C, self.P)).float().cuda()  # n x F+3
