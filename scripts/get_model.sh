@@ -1,8 +1,6 @@
 #!/bin/bash
 
 cd ocr/pretrained/
-# MORANv2
-wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1TkUXU1HntilKiIiYfbfilR0psdfNTjrL' -O MORANv2.pth
 # CRNN is a thicc boi
 export fileid=1FHCQJcEvNdn92Fg5AflwrjbOgrLSGhAu
 export filename=CRNN.pth

@@ -77,7 +77,7 @@ def getText(image, detector, recognizer, write=True):
             if use_recognizer == 'CRNN':
                 text, res_dict = recognizer.process(gray)
             else:
-                raise ValueError(f'using either CRNN or MORAN, got {use_recognizer} instead')
+                raise ValueError(f'support CRNN only, got {use_recognizer} instead')
             res.append(text)
     if write:
         with open(os.path.join(os.path.dirname(os.path.relpath(__file__)), 'test', 'results.txt'), 'w') as test_result:
