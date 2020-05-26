@@ -23,5 +23,5 @@ COPY pipeline.py pipeline.py
 COPY server.py server.py
 
 # expose port to run the server
-EXPOSE 5000-5050
+EXPOSE 5000
 CMD ["python3", "server.py"]

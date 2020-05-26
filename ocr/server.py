@@ -1,7 +1,6 @@
 import argparse
 import logging
 import os
-import random
 
 import flask
 from flask import Flask, jsonify, request
@@ -57,11 +56,10 @@ def parseText():
 
 if __name__ == '__main__':
     logging.info('Starting server...')
-    ranPort = random.randint(5000, 5050)
     parser = argparse.ArgumentParser()
     parser.add_argument('--docker', action='store_true', help='allows to run on cpu for docker container')
     parser.add_argument('--config', default='config.yml', help='path to config.yml, default is the same dir as pipeline')
     parser.add_argument('--thresh', default=0.7, help='threshold for confidence score')
     opt = parser.parse_args()
     m = serveModel(config_file=opt.config, thresh=opt.thresh, docker=opt.docker)
-    app.run(host='0.0.0.0', port=ranPort)
+    app.run(host='0.0.0.0', port=5000)

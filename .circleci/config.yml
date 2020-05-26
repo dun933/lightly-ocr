@@ -1,4 +1,4 @@
-version: 2
+version: 2.1
 jobs:
   build_and_push:
     docker:
@@ -33,7 +33,7 @@ jobs:
             gcloud auth print-access-token | docker login -u oauth2access --password-stdin https://gcr.io
             docker push gcr.io/${GOOGLE_PROJECT_ID}/ocr/:${CIRCLE_SHA1}
 workflows:
-  version: 2
+  version: 2.1
   build_deploy:
     jobs:
       - build_and_push:
