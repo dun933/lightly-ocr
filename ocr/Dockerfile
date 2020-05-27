@@ -1,6 +1,9 @@
 # FROM anibali/pytorch:1.5.0-cuda10.2
 FROM aar0npham/torch-cv2-docker:latest
 
+ARG BUILD_DATE
+ARG COMMIT_REF
+
 MAINTAINER Aaron Pham <aaronpham0103@gmail.com>
 
 USER root
