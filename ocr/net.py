@@ -9,11 +9,11 @@ import torch.backends.cudnn as cudnn
 import torch.nn as nn
 import torch.nn.functional as F
 import yaml
-from PIL import Image
-
 from model import CRNNet, Placeholder, VGG_UNet
-from tools import (AttnLabelConverter, CTCLabelConverter, ResizeNormalize, adjustResultCoordinates, compare_rects, getDetBoxes, normalizeMeanVariance,
-                   resizeAspectRatio)
+from PIL import Image
+from tools import (AttnLabelConverter, CTCLabelConverter, ResizeNormalize,
+                   adjustResultCoordinates, compare_rects, getDetBoxes,
+                   normalizeMeanVariance, resizeAspectRatio)
 
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 MODEL_PATH = os.path.join(os.path.dirname(os.path.relpath(__file__)), 'save_models')

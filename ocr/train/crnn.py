@@ -11,11 +11,11 @@ import torch.nn.functional as F
 import torch.nn.init as init
 import torch.optim as optim
 import yaml
-from torch.utils.data import DataLoader
-
 from ocr.model import CRNNet
-from ocr.tools import (AlignCollate, AttnLabelConverter, Averager, CTCLabelConverter, LMDBDataset, RandomSequentialSampler, ResizeNormalize,
-                       load_data)
+from ocr.tools import (AlignCollate, AttnLabelConverter, Averager,
+                       CTCLabelConverter, LMDBDataset, RandomSequentialSampler,
+                       ResizeNormalize, load_data)
+from torch.utils.data import DataLoader
 
 # load device for either `cuda` or `cpu`
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

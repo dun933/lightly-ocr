@@ -6,7 +6,6 @@ from collections import OrderedDict
 import cv2
 import torch
 import yaml
-
 from net import CRAFT, CRNN
 
 # Constant

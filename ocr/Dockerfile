@@ -10,7 +10,7 @@ USER root
 RUN sudo apt-get update && sudo apt-get install -qq -y  gcc cmake
 
 WORKDIR /app
-COPY requirements.txt requirements.txt 
+COPY requirements.txt requirements.txt
 RUN pip install -r requirements.txt
 
 # folders

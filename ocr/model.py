@@ -2,8 +2,8 @@ from abc import ABC
 
 import torch
 import torch.nn as nn
-
-from modules import (TPS_STN, Attention, BidirectionalLSTM, ResNet50v2, UpConv, init_weights, vgg16_bn)
+from modules import (TPS_STN, Attention, BidirectionalLSTM, ResNet50v2, UpConv,
+                     init_weights, vgg16_bn)
 
 
 class VGG_UNet(nn.Module):

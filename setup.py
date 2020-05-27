@@ -9,11 +9,12 @@ with open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='lightlyocr',
-    version='1.0',
+    version='0.2-alpha',
     description='backend for lightly',
     long_description=long_description,
     long_description_content_type='text/markdown',
     author='Aaron Pham',
+    author_email='aaronpham0103@gmail.com',
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',

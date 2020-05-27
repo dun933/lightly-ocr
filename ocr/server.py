@@ -4,9 +4,8 @@ import os
 
 import flask
 from flask import Flask, jsonify, request
-from werkzeug.utils import secure_filename
-
 from pipeline import serveModel
+from werkzeug.utils import secure_filename
 
 UPLOAD_FOLDER = f'{os.path.dirname(os.path.relpath(__file__))}/test'
 ALLOWED = {'png', 'jpeg', 'jpg'}

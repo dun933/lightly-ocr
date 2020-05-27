@@ -4,7 +4,6 @@ import sys
 import unittest
 
 import torch
-
 from ocr.tools import recog_utils
 
 

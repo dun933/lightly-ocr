@@ -9,7 +9,6 @@ import torch
 import torch.nn as nn
 import torch.onnx
 import yaml
-
 from net import CRAFT, CRNN
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

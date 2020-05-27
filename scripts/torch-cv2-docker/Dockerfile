@@ -37,4 +37,3 @@ RUN conda install -y -c pytorch \
 RUN conda install -c conda-forge opencv
 
 CMD ["python3"]
-
