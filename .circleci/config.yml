@@ -29,7 +29,7 @@ jobs:
           name: push docker image to gcr
           command: |
             gcloud auth print-access-token | docker login -u _dcgcloud_token --password-stdin https://gcr.io
-            docker push gcr.io/${GOOGLE_PROJECT_ID}/ocr/:${CIRCLE_SHA1}
+            docker push gcr.io/${GOOGLE_PROJECT_ID}/ocr:${CIRCLE_SHA1}
 workflows:
   version: 2.1
   build_deploy:

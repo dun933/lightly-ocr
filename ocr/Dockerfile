@@ -7,7 +7,7 @@ ARG COMMIT_REF
 MAINTAINER Aaron Pham <aaronpham0103@gmail.com>
 
 USER root
-RUN sudo apt-get update && sudo apt-get install -y gcc cmake
+RUN sudo apt-get update && sudo apt-get install -qq -y  gcc cmake
 
 WORKDIR /app
 COPY requirements.txt requirements.txt 
