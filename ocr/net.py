@@ -27,17 +27,17 @@ def copyStateDict(state_dict):
     else:
         start_idx = 0
 
-    new_state_dict = OrderedDict()
+    newStateDict = OrderedDict()
     for k, v in state_dict.items():
         name = '.'.join(k.split('.')[start_idx:])
-        new_state_dict[name] = v
-    return new_state_dict
+        newStateDict[name] = v
+    return newStateDict
 
 
 class CRAFT(Placeholder):
-    def __init__(self, state_dict='CRAFT.pth', device=DEVICE, docker=False):
+    def __init__(self, stateDictName='CRAFT.pth', device=DEVICE, docker=False):
         super().__init__()
-        self.model_path = os.path.join(MODEL_PATH, state_dict)
+        self.model_path = os.path.join(MODEL_PATH, stateDictName)
         self.net = VGG_UNet().to(device)
         self.device = device
         if docker:
@@ -114,10 +114,10 @@ class CRAFT(Placeholder):
 
 
 class CRNN(Placeholder):
-    def __init__(self, state_dict='CRNN.pth', device=DEVICE, docker=False):
+    def __init__(self, stateDictName='CRNN.pth', device=DEVICE, docker=False):
         super().__init__()
         self.alphabet = '0123456789abcdefghijklmnopqrstuvwxyz'
-        self.model_path = os.path.join(MODEL_PATH, state_dict)
+        self.model_path = os.path.join(MODEL_PATH, stateDictName)
         self.net = CRNNet(CONFIG, device).to(device)
         if docker:
             self.toContainer(docker=docker)

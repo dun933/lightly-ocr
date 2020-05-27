@@ -2,10 +2,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class ResNet_FeatureExtractor(nn.Module):
+class ResNet50v2(nn.Module):
     # FeatureExtractor of FAN (http://openaccess.thecvf.com/content_ICCV_2017/papers/Cheng_Focusing_Attention_Towards_ICCV_2017_paper.pdf)
     def __init__(self, input_channel, output_channel=512):
-        super(ResNet_FeatureExtractor, self).__init__()
+        super(ResNet50v2, self).__init__()
         self.ConvNet = ResNet(input_channel, output_channel, BasicBlock, [1, 2, 5, 3])
 
     def forward(self, input):

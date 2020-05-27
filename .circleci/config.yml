@@ -20,9 +20,9 @@ jobs:
       - run:
           name: setup ocr docker image
           command: |
-            docker build\
-              --build-arg COMMIT_REF=${CIRCLE_SHA1}\
-              --build-arg BUILD_DATE=`date -u + "%Y-%m-%dT%H:%M:%SZ"` \
+            docker build \
+              --build-arg COMMIT_REF=${CIRCLE_SHA1} \
+              --build-arg BUILD_DATE=`date -u +”%Y-%m-%d-%H:%M:%S”` \
               -t gcr.io/${GOOGLE_PROJECT_ID}/ocr:${CIRCLE_SHA1} ocr
       # for now, TODO: add ingress builder and deploy to k8s
       - run:

@@ -7,11 +7,11 @@ DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # I have tried to implements this in tensorflow-keras but the result is not as good as shown below
 
 
-class TPS_SpatialTransformerNetwork(nn.Module):
+class TPS_STN(nn.Module):
     """ Rectification Network of RARE, namely TPS based STN """
     def __init__(self, F, im_size, im_rectified, num_channels=1, device=DEVICE):
         # TPS based STN
-        super(TPS_SpatialTransformerNetwork, self).__init__()
+        super(TPS_STN, self).__init__()
         self.F = F
         self.im_size = im_size
         self.im_rectified = im_rectified  # (I_r_height, I_r_width)
