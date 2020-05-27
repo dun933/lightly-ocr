@@ -82,11 +82,13 @@ overview in `src` as follows:
 ```
 
 ## todo.
-
+* [ ] define type for python function 
 * [ ] autogenerate Dockerfile? → __features__
 * [ ] add docstring, fixes `too-many-locals`
 * [ ] [ingress](ingress/) controller
 * [ ] custom ops for `torch.nn.functional.grid_sample`, refers to this [issues](https://github.com/onnx/onnx/issues/654). Notes and fixes are in [here](ocr/torch2onnx.py)
+* [ ] rename state dict
+* [ ] updates save weight to google drive (for local testing since circle have weight already)
 * [x] ~~complete `__init__.py`~~
 * [x] ~~added Dockerfile/CircleCI~~
 
