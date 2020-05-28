@@ -176,20 +176,18 @@ class CRNN(Placeholder):
         raw_pred, preds = self.getPreds(image)
         probs = F.softmax(preds, dim=2)
         max_probs, _ = probs.max(dim=2)
-        with open(os.path.join(os.path.dirname(os.path.relpath(__file__)), 'test', 'log_results.txt'), 'w+') as f:
-            for max_prob in max_probs:
-                # returns prediction here
-                if self.config['prediction'] == 'Attention':
-                    try:
-                        # [EOS] token process in a list
-                        pred_EOS = raw_pred[0].index('[s]')
-                        raw_pred = raw_pred[0][:pred_EOS]
-                        max_prob = max_prob[:pred_EOS]
-                    except ValueError:
-                        print('Not found EOS token, continue.\n(potential error)')
-                        continue  # when there isn't a EOS token
-                confidence = max_prob.cumprod(dim=0)[-1]
-                res[confidence] = raw_pred
-                f.write(f'results: {raw_pred}\nconfidence score: {confidence:.4f}\n')
-                print(f'results: {raw_pred}\nconfidence score: {confidence:.4f}\n')
+        for max_prob in max_probs:
+            # returns prediction here
+            if self.config['prediction'] == 'Attention':
+                try:
+                    # [EOS] token process in a list
+                    pred_EOS = raw_pred[0].index('[s]')
+                    raw_pred = raw_pred[0][:pred_EOS]
+                    max_prob = max_prob[:pred_EOS]
+                except ValueError:
+                    print('Not found EOS token, continue.\n(potential error)')
+                    continue  # when there isn't a EOS token
+            confidence = max_prob.cumprod(dim=0)[-1]
+            res[confidence] = raw_pred
+            print(f'results: {raw_pred}\nconfidence score: {confidence:.4f}\n')
         return raw_pred, res

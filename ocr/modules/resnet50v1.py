@@ -3,7 +3,8 @@ import torch.nn.functional as F
 
 
 class ResNet50v2(nn.Module):
-    # FeatureExtractor of FAN (http://openaccess.thecvf.com/content_ICCV_2017/papers/Cheng_Focusing_Attention_Towards_ICCV_2017_paper.pdf)
+    # FAN's backbone (http://openaccess.thecvf.com/content_ICCV_2017/papers/Cheng_Focusing_Attention_Towards_ICCV_2017_paper.pdf)
+    # or as we all know they called it resnet50
     def __init__(self, input_channel, output_channel=512):
         super(ResNet50v2, self).__init__()
         self.ConvNet = ResNet(input_channel, output_channel, BasicBlock, [1, 2, 5, 3])

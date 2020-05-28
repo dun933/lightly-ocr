@@ -26,7 +26,10 @@ OCR tasks can be found in `/ocr`, network-related can be found in `/ingress`
 - built with `pytorch`
 
 ## instruction.
-- build local docker image with `(sudo) docker build [--gpus=all] -f [PATH of Dockerfile] -t aar0npham/lightly-ocr:latest ocr`, for `--gpus=all` requires [nvidia-docker](https://github.com/NVIDIA/nvidia-docker)
+- I know that the code is all over the place and tad horrible, but I'm using it as a proof of concept first
+- build local docker image with `(sudo) docker build [--gpus=all] -f [PATH of Dockerfile] -t aar0npham/lightly-ocr:latest ocr`
+  - for `--gpus=all` requires [nvidia-docker](https://github.com/NVIDIA/nvidia-docker)
+- to test the images after build do `(sudo) docker run -d -p 5000:5000 aar0npham/lightly-ocr:latest`
 - if you want to use MORAN please refer to [@66171c8058](https://github.com/aar0npham/lightly-ocr/tree/66171c80586537ae915938b2e92eb83c474cda79)
 - run `bash scripts/download_model.sh` to get the pretrained model (included in docker images)
 - to test the model run: ```python ocr/pipeline.py --img [IM_PATH]```
@@ -80,6 +83,8 @@ overview in `src` as follows:
 ```
 
 ## todo.
+* [ ] rewrite
+* [ ] improve runtime (concurrency)
 * [ ] define type for python function
 * [ ] [ingress](ingress/) controller
 * [ ] custom ops for `torch.nn.functional.grid_sample`, refers to this [issues](https://github.com/onnx/onnx/issues/654). Notes and fixes are in [here](ocr/torch2onnx.py)

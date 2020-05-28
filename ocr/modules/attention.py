@@ -3,20 +3,18 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
 
 # TODO: parse dynamic tensor with torch.jit.trace #L20,L29,L30
 class Attention(nn.Module):
-    def __init__(self, nIn, nHidden, num_classes, device='cuda'):
+    def __init__(self, nIn: int, nHidden: int, num_classes: int, device: str):
         super(Attention, self).__init__()
         self.device = device
-        self.attention_cell = AttentionCell(nIn, nHidden, num_classes, device=device)
         self.nHidden = nHidden
         self.num_classes = num_classes
         self.generator = nn.Linear(nHidden, num_classes)
+        self.attention_cell = AttentionCell(nIn, nHidden, num_classes, device)
 
-    def char2onehot(self, input_char, onehot_dim=38):
+    def char2onehot(self, input_char, onehot_dim=38) -> torch.FloatTensor:
         input_char = input_char.unsqueeze(1)
         batch_size = input_char.size(0)
         onehot = torch.FloatTensor(batch_size, onehot_dim).zero_().to(self.device)
@@ -28,23 +26,33 @@ class Attention(nn.Module):
         # return probability distribution of each step [batch_size, num_steps, num_classes]
         batch_size = inputs.size(0)
         num_steps = batch_max_len + 1
-        h = torch.FloatTensor(batch_size, num_steps, self.nHidden).fill_(0).to(self.device)
-        nh = (torch.FloatTensor(batch_size, self.nHidden).fill_(0).to(self.device), torch.FloatTensor(batch_size,
-                                                                                                      self.nHidden).fill_(0).to(self.device))
+        h = (
+            torch.FloatTensor(batch_size, num_steps, self.nHidden)
+            .fill_(0)
+            .to(self.device)
+        )
+        nh = (
+            torch.FloatTensor(batch_size, self.nHidden).fill_(0).to(self.device),
+            torch.FloatTensor(batch_size, self.nHidden).fill_(0).to(self.device),
+        )
         if training:
             for i in range(num_steps):
                 onehotChar = self.char2onehot(text[:, i], onehot_dim=self.num_classes)
-                nh, alpha = self.attention_cell(
-                    nh, inputs, onehotChar)  # nh: decoder's hidden at s_(t-1), inputs: encoder's hidden H, onehotChar: onehot(y_(t_1))
+                # nh: decoder's hidden at s_(t-1), inputs: encoder's hidden H, onehotChar: onehot(y_(t_1))
+                nh, _ = self.attention_cell(nh, inputs, onehotChar)
                 h[:, i, :] = nh[0]  # -> lstm hidden index (0:hidden, 1:cell)
             probs = self.generator(h)
         else:
             targets = torch.LongTensor(batch_size).fill_(0).to(self.device)
-            probs = torch.FloatTensor(batch_size, num_steps, self.num_classes).fill_(0).to(self.device)
+            probs = (
+                torch.FloatTensor(batch_size, num_steps, self.num_classes)
+                .fill_(0)
+                .to(self.device)
+            )
 
             for i in range(num_steps):
                 onehotChar = self.char2onehot(targets, onehot_dim=self.num_classes)
-                nh, alpha = self.attention_cell(nh, inputs, onehotChar)
+                nh, _ = self.attention_cell(nh, inputs, onehotChar)
                 probs_step = self.generator(nh[0])
                 probs[:, i, :] = probs_step
                 _, n_in = probs_step.max(1)  # -> returns next inputs
@@ -54,8 +62,7 @@ class Attention(nn.Module):
 
 
 class AttentionCell(nn.Module):
-    # TODO: Fixes batch_first in LSTM to fix foward() difference when processing i2h
-    def __init__(self, nIn, nHidden, num_embeddings, device='cuda'):
+    def __init__(self, nIn: int, nHidden: int, num_embeddings: int, device: str):
         super(AttentionCell, self).__init__()
         self.device = device
         self.nHidden = nHidden
