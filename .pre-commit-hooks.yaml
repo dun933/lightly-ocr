@@ -1,5 +1,5 @@
-- id: pylint
-  name: pylint
-  entry: pylint
+- id: lightly-ocr
+  name: lightly-ocr
+  entry: ocr
   language: python
   types: [python]
