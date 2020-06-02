@@ -4,8 +4,6 @@ FROM aar0npham/torch-cv2-docker:latest
 ARG BUILD_DATE
 ARG COMMIT_REF
 
-MAINTAINER Aaron Pham <aaronpham0103@gmail.com>
-
 USER root
 RUN sudo apt-get update && sudo apt-get install -qq -y  gcc cmake
 

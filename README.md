@@ -4,7 +4,7 @@
 
 lightly's backend - receipt to text :chart_with_downwards_trend:
 
-OCR tasks can be found in `/ocr`, network-related can be found in `/ingress`
+OCR can be found in `/ocr`, database/network controller can be found in `/ingress`
 
 ## table of content.
 * [credits.](#credits)
