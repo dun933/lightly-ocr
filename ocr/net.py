@@ -171,8 +171,8 @@ class CRNN(Placeholder):
             raw_pred = self.converter.decode(preds_idx, len_pred)
         return raw_pred, preds
 
-    def process(self, image):
-        res = dict()
+    def process(self, result: dict, image: np.ndarray):
+        # we only process one images, predict have size 1
         raw_pred, preds = self.getPreds(image)
         probs = F.softmax(preds, dim=2)
         max_probs, _ = probs.max(dim=2)
@@ -188,6 +188,6 @@ class CRNN(Placeholder):
                     print('Not found EOS token, continue.\n(potential error)')
                     continue  # when there isn't a EOS token
             confidence = max_prob.cumprod(dim=0)[-1]
-            res[confidence] = raw_pred
-            print(f'results: {raw_pred}\nconfidence score: {confidence:.4f}\n')
-        return raw_pred, res
+            print(f'results: {raw_pred}\tconfidence score: {confidence:.4f}\n')
+            result[confidence] = raw_pred
+        return raw_pred, result

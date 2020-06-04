@@ -6,6 +6,8 @@ lightly's backend - receipt to text :chart_with_downwards_trend:
 
 OCR can be found in `/ocr`, database/network controller can be found in `/ingress`
 
+![architecture.png](architecture.png)
+
 ## table of content.
 * [credits.](#credits)
 * [requirements.](#requirements)

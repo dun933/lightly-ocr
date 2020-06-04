@@ -63,7 +63,7 @@ def prepModel(config=CONFIG, rename=False, docker=False):
 
 
 def getText(image, detector, recognizer, write=True):
-    res = []
+    res = {}
     use_recognizer = CONFIG['pipeline'].split('-')[1]
     image = cv2.imread(image)  # use cv2 to read image
     with torch.no_grad():
@@ -74,18 +74,17 @@ def getText(image, detector, recognizer, write=True):
         for _, img in enumerate(roi):
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             if use_recognizer == 'CRNN':
-                text, res_dict = recognizer.process(gray)
+                _, res = recognizer.process(res, gray)
             else:
                 raise ValueError(f'support CRNN only, got {use_recognizer} instead')
-            res.append(text)
     if write:
-        with open(os.path.join(os.path.dirname(os.path.relpath(__file__)), 'test', 'results.txt'), 'w') as test_result:
-            for i in res:
-                test_result.write(f'prediction: {i}\n')
-            print(f'wrote results to {test_result.name}')
-            test_result.close()
+        with open(os.path.join(os.path.dirname(os.path.relpath(__file__)), 'test', 'results.txt'), 'w') as testRes:
+            for k, v in res.items():
+                testRes.write(f'confidence: {k}\tprediction: {v}\n')
+            print(f'wrote results to {testRes.name}')
+            testRes.close()
     torch.cuda.empty_cache()
-    return res, res_dict
+    return res
 
 
 class serveModel:
@@ -106,8 +105,8 @@ class serveModel:
 
     def predict(self, inputs: str):
         getRes = []
-        _, res_dict = getText(inputs, self.detector, self.recognizer)
-        for k, v in res_dict.items():
+        resDict = getText(inputs, self.detector, self.recognizer)
+        for k, v in resDict.items():
             if k > self.thresh:
                 getRes.append(v)
         return getRes
