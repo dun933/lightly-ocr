@@ -1,3 +1,5 @@
+#!/bin/bash
+
 noneContainter=$(docker images -a | grep "^<none>" | awk '{print $3}')
 if [ ! -z "$noneContainter" ]; then
     docker rmi -f $noneContainter
