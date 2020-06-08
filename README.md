@@ -117,7 +117,7 @@ overview in `src` as follows:
 </summary>
 
   * [ ] add `unit_test`
-  * [ ] process ICDAR2019 for eval sets in conjunction with MJSynth val data ⇒ reduce biases
+  * [ ] ~~process ICDAR2019 for eval sets in conjunction with MJSynth val data ⇒ reduce biases~~ 
   * [x] ~~fixes `batch_first` for AttentionCell in [sequence.py](ocr/modules/sequence.py)~~
   * [x] ~~transfer trained weight to fit with the model~~
   * [x] ~~fix image padding issues with [eval.py](ocr/recognizer/CRNN/tools/eval.py)~~

@@ -66,7 +66,6 @@ func connectDB() *sql.DB {
 }
 
 // FetchUser returns a query in backend-app
-// multiple table => this will break anw
 func FetchUser() ([]User, error) {
 	if connected {
 		selectQuery := fmt.Sprintf("SELECT * FROM %s", dbName)
@@ -106,15 +105,7 @@ func init() {
 	connected = false
 	db = connectDB()
 
-	tables := []struct {
-		name  string
-		table Table
-	}{
-		{name: "User", table: User{userQuery}},
-		{name: "CO2", table: CO2{co2Query}},
-	}
-
-	err := createTable()
+	err := createTable(userQuery)
 	if err != nil {
 		panic(err)
 	}
