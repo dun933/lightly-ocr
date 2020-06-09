@@ -7,7 +7,6 @@ lightly's backend - receipt to text :chart_with_downwards_trend:
 OCR can be found in `/ocr`, database/network controller can be found in `/ingress`
 
 ![architecture.png](architecture.png)
-_notes_: `green` lines demonstrate _traffic in_, while `red` represents _traffic out_, `orange` are internal routes
 
 ## table of content
 * [credits](#credits)

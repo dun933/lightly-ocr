@@ -25,6 +25,10 @@ var insertQuery = fmt.Sprintf("INSERT INTO %s VALUES (?,?,?)", dbName)
 var db *sql.DB
 var connected bool
 
+// cnnstr = fmt.Sprintf("root:toor@tcp(localhost)/%s", dbName) -> devEnv
+
+// cnnstr = fmt.Sprintf("application:application123@tcp(localhost)/%s", dbName)
+
 // ErrNotConnected should be thrown when there is no established connection to the database
 var ErrNotConnected error = errors.New("No connection to database")
 
@@ -33,11 +37,6 @@ var PingTimeout time.Duration = 1 * time.Second
 
 // SleepTimeout returns the amount of time to wait during the goroutine when reconnecting
 var SleepTimeout time.Duration = 5 * time.Second
-
-// Table implements createTable for both struct database
-type Table interface {
-	createTable(query string) error
-}
 
 // User contains the general table to store username and given score for the item
 type User struct {
@@ -52,17 +51,11 @@ type CO2 struct {
 	emission float64
 }
 
-// connectDB allows to connect to database
-func connectDB() *sql.DB {
-	var cnnstr string
-	if devEnv {
-		cnnstr = fmt.Sprintf("root:toor@tcp(localhost)/%s", dbName)
-	} else {
-		cnnstr = fmt.Sprintf("application:application123@tcp(localhost)/%s", dbName)
-	}
-	log.Info("try to connect db with ", cnnstr)
-	db, _ := sql.Open("mysql", cnnstr)
-	return db
+type DB struct {
+	Client    *sql.DB
+	Driver    string
+	URL       string
+	connected bool
 }
 
 // FetchUser returns a query in backend-app
@@ -85,19 +78,6 @@ func FetchUser() ([]User, error) {
 		return user, err
 	}
 	return nil, ErrNotConnected
-}
-
-func createTable(query string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
-
-	if err := db.PingContext(ctx); err != nil {
-		return err
-	}
-	connected = true
-	// added connection string
-	_, err := db.Exec(query)
-	return err
 }
 
 // init tries to reconnect to database when there is no connection established
