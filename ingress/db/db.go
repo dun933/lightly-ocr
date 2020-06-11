@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"time"
 
@@ -14,23 +13,14 @@ import (
 )
 
 //constant
-const userQuery string = "CREATE TABLE IF NOT EXISTS database (userName varchar(255), userScore int, imgPath varchar(255));"
-const co2Query string = "CREATE TABLE IF NOT EXISTS co2 (items varchar(255), emission float64);"
+// const userQuery string = "CREATE TABLE IF NOT EXISTS database (userName varchar(255), userScore int, imgPath varchar(255));"
+// const co2Query string = "CREATE TABLE IF NOT EXISTS co2 (items varchar(255), emission float64);"
 const dbName string = "backend-app"
 const devEnv = false
+const ifExists = false
 
-// insertQuery holds default string to insert item into database
-var insertQuery = fmt.Sprintf("INSERT INTO %s VALUES (?,?,?)", dbName)
-
-var db *sql.DB
+// connected checks whether the database is connected or not
 var connected bool
-
-// cnnstr = fmt.Sprintf("root:toor@tcp(localhost)/%s", dbName) -> devEnv
-
-// cnnstr = fmt.Sprintf("application:application123@tcp(localhost)/%s", dbName)
-
-// ErrNotConnected should be thrown when there is no established connection to the database
-var ErrNotConnected error = errors.New("No connection to database")
 
 // PingTimeout measures how long we should ping when attempting to reconnect to the database
 var PingTimeout time.Duration = 1 * time.Second
@@ -52,40 +42,74 @@ type CO2 struct {
 }
 
 type DB struct {
-	Client    *sql.DB
-	Driver    string
-	URL       string
-	connected bool
+	Client *sql.DB
+	Driver string
+	URL    string
 }
 
-// FetchUser returns a query in backend-app
-func FetchUser() ([]User, error) {
-	if connected {
-		selectQuery := fmt.Sprintf("SELECT * FROM %s", dbName)
-		row, err := db.Query(selectQuery)
-		defer row.Close()
+// Ping wraps sql.Ping
+func (db *DB) Ping() error {
+	return db.Client.Ping()
+}
 
-		user := []User{}
+// PingContext wraps around sql.PingContext
+func (db *DB) PingContext(ctx context.Context) error {
+	return db.Client.PingContext(ctx)
+}
 
-		for row.Next() {
-			u := User{}
-			if err := row.Scan(&u.userName, &u.userScore, &u.imgPath); err != nil {
-				log.Fatal(err)
-			} else {
-				user = append(user, u)
-			}
-		}
-		return user, err
+// Exec is just sql.Exec wrapper
+func (db *DB) Exec(sql string, params ...interface{}) (sql.Result, error) {
+	res, err := db.Client.Exec(sql, params...)
+	return res, err
+}
+
+// Query wraps sql.Query
+func (db *DB) Query(sql string, params ...interface{}) (*sql.Rows, error) {
+	res, err := db.Client.Query(sql, params...)
+	return res, err
+}
+
+func (db *DB) CreateTable(st interface{}, ifExists bool) error {
+	t, err := NewTable(st)
+	if err != nil {
+		return err
 	}
-	return nil, ErrNotConnected
+
+	_, err := db.Exec(NewTableQuery(t.SQLName, t.SQLOptions(), ifExists))
+	return err
+}
+
+// Connect responds for connecting the database
+func Connect(driver, url string) (*DB, error) {
+	client, err := sql.Open(driver, url)
+	if err != nil {
+		return nil, err
+	}
+	return &DB{
+		Client: client,
+		Driver: driver,
+		URL:    url,
+	}, nil
+}
+
+// ConnectURL returns connect string (static atm)
+// TODO: added options for users/password, etc
+func ConnectURL(devEnv bool) string {
+	var url string
+	if devEnv {
+		url = fmt.Sprintf("root:toor@tcp(localhost)/%s", dbName)
+	} else {
+		url = fmt.Sprintf("application:application123@tcp(localhost)/%s", dbName)
+	}
+	return url
 }
 
 // init tries to reconnect to database when there is no connection established
 func init() {
 	connected = false
-	db = connectDB()
+	db, _ := Connect("mysql", ConnectURL(devEnv))
 
-	err := createTable(userQuery)
+	err := db.CreateTable([]*User{}, ifExists)
 	if err != nil {
 		panic(err)
 	}
@@ -97,7 +121,7 @@ func init() {
 			if err != nil {
 				connected = false
 				log.Errorf("attempting to reconnect, connection: %s", err.Error())
-				db = connectDB()
+				db, _ = Connect("mysql", ConnectURL(devEnv))
 			} else {
 				connected = true
 			}

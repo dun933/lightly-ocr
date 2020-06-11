@@ -16,22 +16,22 @@ type FieldIteration struct {
 }
 
 func GetFieldsOf(st interface{}) ([]*Field, error) {
-	fields, err := GetFields(st, []*Field{})
+	fields, err := CollectFields(st, []*Field{})
 	if err != nil {
 		return nil, err
 	}
 	return fields, nil
 }
 
-func GetFields(st interface{}, fields []*Field) ([]*Field, error) {
+func CollectFields(st interface{}, fields []*Field) ([]*Field, error) {
 	iter := NewFieldIteration(st)
 	for iter.Next() {
 		if iter.IsEmbeddedStruct() {
-			if _fields, err := GetFields(iter.ValueField().Interface(), fields); err != nil {
+			subField, err := CollectFields(iter.ValueField().Interface(), fields)
+			if err != nil {
 				return nil, err
-			} else {
-				fields = _fields
 			}
+			fields = subField
 			continue
 		}
 
@@ -40,5 +40,46 @@ func GetFields(st interface{}, fields []*Field) ([]*Field, error) {
 		if err != nil {
 			return nil, err
 		}
+		fields = append(fields, &Field{
+			Name:  iter.Name(),
+			Value: iter.Value(),
+			SQL:   sqlOptions,
+		})
 	}
+	return fields, nil
+}
+
+func NewFieldIteration(st interface{}) *FieldIteration {
+	rValue := reflect.Indirect(reflect.ValueOf(st))
+	rType := rValue.Type()
+	length := rValue.NumField()
+	return &FieldIteration{
+		Index:        -1,
+		Length:       length,
+		ReflectValue: rValue,
+		ReflectType:  rType,
+	}
+}
+
+func (it *FieldIteration) Next() bool {
+	if it.Index+1 >= it.Length {
+		return false
+	}
+	it.Index++
+	return true
+}
+
+func (it *FieldIteration) TypeField() reflect.StructField {
+	return it.ReflectType.Field(it.Index)
+}
+
+func (it *FieldIteration) ValueField() reflect.Value {
+	return it.ReflectValue.Field(it.Index)
+}
+
+func (it *FieldIteration) IsEmbeddedStruct() bool {
+	if _, ok := TypeDict[it.TypeField().Type.String()]; ok {
+		return false
+	}
+	return it.ReflectValue.Field(it.Index).Kind() == reflect.Struct
 }
